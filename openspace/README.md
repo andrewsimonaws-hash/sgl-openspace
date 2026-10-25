@@ -17,7 +17,7 @@ To launch, run this from `C:\Users\andre\OpenSpace\v0.22.0`:
 | Node | What it shows |
 |---|---|
 | `SGL_Frame` | Local frame on the Sun. z runs down the focal line, away from the target (a hypothetical direction, galactic l = 200°, b = 25°). x and y span the image plane in metres. |
-| `SGL_SunToFocal`, `SGL_FocalLine1`–`24` | A faint line from the Sun to 547.7 AU, then the focal line out to 1000 AU. It's drawn in 24 segments that run from 1 km long at the image plane up to 10¹³ m at the ends. |
+| `SGL_SunToFocal`, `SGL_FocalLine1`–`24` | A faint line from the Sun to 547.7 AU, then the focal line out to 1000 AU. It's drawn in 24 segments that run from 1 km long at the image plane up to 4×10¹³ m at the far end. |
 | `SGL_SunDirection`, `SGL_SunMarker`, `SGL_SunLabel` | Marks the Sun as seen from the image plane. From 650 AU, nothing placed at the Sun itself draws in OpenSpace except lines and orbit trails, so the marker sits 10⁶ km sunward on the focal axis. From near the axis it falls within about 10⁻⁶ rad of the true Sun. |
 | `SGL_ImagePlane` | The image plane at 650 AU, with the camera focus and bounding spheres sized for the 1,340 m image |
 | `SGL_ImageGlow` | Image-plane brightness under the physical PSF, in color: EPIC's 680, 551 and 443 nm bands (on by default) |
