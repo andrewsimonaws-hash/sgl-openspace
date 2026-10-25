@@ -1,0 +1,538 @@
+"""Generate the OpenSpace SGL assets (layer B) from the layer-A data.
+
+Writes portfolio/openspace/sgl/:
+  sgl.asset            focal line, image-plane disk (textures), sample point cloud
+  sgl_formation.asset  12 spacecraft with keyframed paths and trails
+  textures/, data/     copies of the layer-A textures and the sample CSV
+and copies the folder into OpenSpace's user/data/assets/sgl unless --no-install.
+
+    python build_asset.py
+"""
+import argparse
+import csv
+import json
+import math
+import os
+import shutil
+from datetime import datetime, timedelta
+
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+LAYER_A = os.path.join(HERE, "..", "layer_a", "out")
+OUT = os.path.join(HERE, "sgl")
+OPENSPACE_ASSETS = r"C:\Users\andre\OpenSpace\v0.22.0\user\data\assets"
+
+AU = 1.495978707e11
+EPOCH = datetime(2075, 1, 1)
+# Hypothetical target direction, galactic longitude/latitude (degrees). The focal line
+# points the opposite way, from the Sun away from the target.
+TARGET_L, TARGET_B = 200.0, 25.0
+FOCAL_END_AU = 1000.0
+HOP_SUBSAMPLES = 6
+TELESCOPE_SC = 5        # whose view the telescope inset shows (mid-formation)
+PALETTE = [(1.0, 0.66, 0.25), (0.45, 0.68, 1.0), (0.55, 0.88, 0.6), (0.95, 0.5, 0.8)]
+
+
+def iso(seconds):
+    return (EPOCH + timedelta(seconds=float(seconds))).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def frame_matrix():
+    """3x3 matrix mapping local (x, y, z) to galactic; z points down the focal line."""
+    l, b = math.radians(TARGET_L), math.radians(TARGET_B)
+    target = np.array([math.cos(b) * math.cos(l), math.cos(b) * math.sin(l), math.sin(b)])
+    z = -target
+    x = np.cross([0.0, 0.0, 1.0], z)
+    x /= np.linalg.norm(x)
+    y = np.cross(z, x)
+    return np.column_stack([x, y, z])
+
+
+def axis_offsets(focal_start_au):
+    """Points along the focal axis, in metres from the image plane: 0, then +/-1 km,
+    10 km, ... out to the focal line's start (toward the Sun) and its far end."""
+    near = (focal_start_au - 650.0) * AU
+    far = (FOCAL_END_AU - 650.0) * AU
+    steps = [10.0**k for k in range(3, 14)]
+    toward_sun = [-s for s in steps if s < -near] + [near]
+    away = [s for s in steps if s < far] + [far]
+    return sorted(toward_sun) + [0.0] + away
+
+
+def lua_vec(v):
+    return "{ " + ", ".join(f"{float(a):.10g}" for a in v) + " }"
+
+
+def bcb_points(p0, p1, duration, thrust, n):
+    """Positions at n interior times of a bang-coast-bang hop (same profile as layer A)."""
+    d = p1 - p0
+    length = float(np.linalg.norm(d))
+    ta = (duration - math.sqrt(max(duration**2 - 4 * length / thrust, 0.0))) / 2
+    out = []
+    for k in range(1, n + 1):
+        t = duration * k / (n + 1)
+        if t < ta:
+            s = 0.5 * thrust * t**2
+        elif t <= duration - ta:
+            s = 0.5 * thrust * ta**2 + thrust * ta * (t - ta)
+        else:
+            s = length - 0.5 * thrust * (duration - t) ** 2
+        out.append((t, p0 + d * (s / length)))
+    return out
+
+
+def keyframes_for(stops, dwell, thrust):
+    """Arrive/depart keyframes at each stop plus bang-coast-bang points along each hop."""
+    keys = []
+    for i, (t, p) in enumerate(stops):
+        if i > 0:
+            t_prev, p_prev = stops[i - 1]
+            dep = t_prev + dwell
+            for dt, q in bcb_points(p_prev, p, t - dep, thrust, HOP_SUBSAMPLES):
+                keys.append((dep + dt, q))
+        keys.append((t, p))
+        keys.append((t + dwell, p))
+    return keys
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--no-install", action="store_true")
+    args = ap.parse_args()
+
+    with open(os.path.join(LAYER_A, "textures", "manifest.json")) as f:
+        tex = json.load(f)
+    with open(os.path.join(LAYER_A, "trajectories", "manifest.json")) as f:
+        traj = json.load(f)
+    geo = tex["geometry"]
+    image_d = geo["image_diameter_m"]
+    ext_span = geo["extended_texture_span_m"]
+
+    os.makedirs(os.path.join(OUT, "textures"), exist_ok=True)
+    os.makedirs(os.path.join(OUT, "data"), exist_ok=True)
+    for name in ("image_plane_stretched.png", "image_plane_stretched_rgb.png",
+                 "image_plane_thesis_psf_rgb.png", "truth_rgb.png", "recovered_filtered_snr10_rgb.png"):
+        shutil.copy(os.path.join(LAYER_A, "textures", name), os.path.join(OUT, "textures", name))
+
+    # Formation stops, grouped per spacecraft, from the layer-A samples CSV.
+    stops = {}
+    with open(os.path.join(LAYER_A, "trajectories", "formation12_samples.csv")) as f:
+        rows = list(csv.DictReader(f))
+    with open(os.path.join(OUT, "data", "formation12_samples.csv"), "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["x", "y", "z", "brightness", "sc"])
+        for r in rows:
+            p = np.array([float(r["x_m"]), float(r["y_m"])])
+            stops.setdefault(int(r["sc"]), []).append((float(r["t_s"]), p))
+            if r["in_disk"] == "1":
+                w.writerow([r["x_m"], r["y_m"], "0", r["brightness"], r["sc"]])
+    end_s = max(s[-1][0] for s in stops.values()) + traj["dwell_s"]
+
+    # OpenSpace reads a 3x3 Rotation table column by column, so list the columns
+    # (the local x, y, z axes in galactic coordinates) one after another.
+    rot = frame_matrix().T
+    main_asset = f'''-- Solar gravitational lens: focal line and image plane for an exoplanet at 30 pc.
+-- Generated by portfolio/openspace/build_asset.py from the layer-A data. Edit that script.
+-- Local frame "SGL_Frame": z runs from the Sun down the focal line, away from the target
+-- (galactic l = {TARGET_L}, b = {TARGET_B}); x and y span the image plane in metres.
+
+local sun = asset.require("scene/solarsystem/sun/transforms")
+local colormaps = asset.require("util/default_colormaps")
+
+local AU = {AU}
+local ImageDiameter = {image_d:.3f}      -- metres, planet image at 650 AU
+
+local Frame = {{
+  Identifier = "SGL_Frame",
+  Parent = sun.SunCenter.Identifier,
+  Transform = {{
+    Rotation = {{ Type = "StaticRotation", Rotation = {{
+      {rot[0][0]:.12f}, {rot[0][1]:.12f}, {rot[0][2]:.12f},
+      {rot[1][0]:.12f}, {rot[1][1]:.12f}, {rot[1][2]:.12f},
+      {rot[2][0]:.12f}, {rot[2][1]:.12f}, {rot[2][2]:.12f}
+    }} }}
+  }},
+  GUI = {{ Name = "SGL Frame", Path = "/SGL", Hidden = true, Focusable = false }}
+}}
+
+local FocalStart = {{
+  Identifier = "SGL_FocalStart",
+  Parent = Frame.Identifier,
+  Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {{ 0, 0, {geo["focal_distance_au"]:.4f} * AU }} }} }},
+  InteractionSphere = 1e9,
+  GUI = {{ Name = "Focal line start (547.7 AU)", Path = "/SGL",
+    Description = "Rays grazing the solar limb first meet the optical axis here." }}
+}}
+
+local FocalEnd = {{
+  Identifier = "SGL_FocalEnd",
+  Parent = Frame.Identifier,
+  Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {{ 0, 0, {FOCAL_END_AU} * AU }} }} }},
+  GUI = {{ Name = "Focal line ({FOCAL_END_AU:.0f} AU)", Path = "/SGL", Hidden = true }}
+}}
+
+local ImagePlane = {{
+  Identifier = "SGL_ImagePlane",
+  Parent = Frame.Identifier,
+  Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {{ 0, 0, 650 * AU }} }} }},
+  BoundingSphere = {ext_span / 2:.1f},
+  InteractionSphere = {image_d / 2:.1f},
+  GUI = {{ Name = "SGL image plane (650 AU)", Path = "/SGL",
+    Description = "The exoplanet's image: {image_d:.0f} m across at 650 AU." }}
+}}
+
+-- RenderableNodeLine works out its endpoints in world space and then also applies its own
+-- node's transform, so line nodes sit on the barycenter (no rotation, no offset), as in
+-- OpenSpace's own line assets. Parented to SGL_Frame, the line came out rotated.
+local SunToFocal = {{
+  Identifier = "SGL_SunToFocal",
+  Parent = sun.SolarSystemBarycenter.Identifier,
+  Renderable = {{
+    Type = "RenderableNodeLine",
+    StartNode = sun.SunCenter.Identifier,
+    EndNode = FocalStart.Identifier,
+    Color = {{ 1.0, 0.66, 0.25 }},
+    Opacity = 0.6,
+    LineWidth = 2.0
+  }},
+  GUI = {{ Name = "Sun to focal line", Path = "/SGL" }}
+}}
+
+-- At 650 AU the Sun's disk is 1.5 arcseconds across, and markers placed at the Sun itself
+-- don't draw from out here (only lines and orbit trails do). So the marker stands in on the
+-- line of sight: 1e6 km sunward along the focal axis. Seen from a camera within a few km of
+-- the axis it lands within ~1e-6 rad of the true Sun, exactly where the focal line ends.
+local SunDirection = {{
+  Identifier = "SGL_SunDirection",
+  Parent = ImagePlane.Identifier,
+  Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {{ 0, 0, -1e9 }} }} }},
+  GUI = {{ Name = "Sun direction (marker anchor)", Path = "/SGL", Hidden = true }}
+}}
+
+local SunMarker = {{
+  Identifier = "SGL_SunMarker",
+  Parent = SunDirection.Identifier,
+  Renderable = {{
+    Type = "RenderablePointCloud",
+    File = asset.resource("data/origin.csv"),
+    Unit = "m",
+    Coloring = {{ FixedColor = {{ 1.0, 0.82, 0.5 }} }},
+    SizeSettings = {{ ScaleExponent = 7.45 }}
+  }},
+  GUI = {{ Name = "Sun marker", Path = "/SGL",
+    Description = "Where the Sun is, seen from the image plane. Not to scale." }}
+}}
+
+local SunLabel = {{
+  Identifier = "SGL_SunLabel",
+  Parent = SunDirection.Identifier,
+  -- Nudged up and right of the marker (about 0.7 degrees each way from the default view)
+  Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {{ 1.1e7, 1.3e7, 0 }} }} }},
+  Renderable = {{
+    Type = "RenderableLabel",
+    Text = "Sun, 650 AU",
+    FontSize = 70.0,
+    Size = 6.6,
+    MinMaxSize = {{ 14, 28 }},
+    OrientationOption = "Camera View Direction",
+    BlendMode = "Additive"
+  }},
+  GUI = {{ Name = "Sun label", Path = "/SGL" }}
+}}
+
+-- The focal line is drawn as segments that get longer away from the image plane. Line
+-- endpoints reach the GPU as 32-bit floats relative to the camera's focus, so one 452 AU
+-- line would be drawn up to ~1000 km off near the image plane. Short segments near the
+-- plane keep it exact where the camera is.
+local AxisOffsets = {{ {", ".join(f"{z:.6g}" for z in axis_offsets(geo["focal_distance_au"]))} }}
+local axisNodes = {{}}
+for i, z in ipairs(AxisOffsets) do
+  axisNodes[i] = {{
+    Identifier = "SGL_Axis" .. i,
+    Parent = ImagePlane.Identifier,
+    Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {{ 0, 0, z }} }} }},
+    GUI = {{ Name = "Focal axis point " .. i, Path = "/SGL/Focal line", Hidden = true }}
+  }}
+end
+local axisLines = {{}}
+for i = 1, #AxisOffsets - 1 do
+  axisLines[i] = {{
+    Identifier = "SGL_FocalLine" .. i,
+    Parent = sun.SolarSystemBarycenter.Identifier,
+    Renderable = {{
+      Type = "RenderableNodeLine",
+      StartNode = axisNodes[i].Identifier,
+      EndNode = axisNodes[i + 1].Identifier,
+      Color = {{ 1.0, 0.66, 0.25 }},
+      LineWidth = 3.0
+    }},
+    GUI = {{ Name = "Focal line segment " .. i, Path = "/SGL/Focal line" }}
+  }}
+end
+
+local function imagePlaneLayer(id, name, texture, size, enabled, description)
+  return {{
+    Identifier = id,
+    Parent = ImagePlane.Identifier,
+    Renderable = {{
+      Type = "RenderablePlaneImageLocal",
+      Texture = asset.resource("textures/" .. texture),
+      Size = size,
+      MirrorBackside = true,
+      -- Additive so the texture's black surround doesn't hide stars, samples or spacecraft.
+      BlendMode = "Additive",
+      Enabled = enabled
+    }},
+    GUI = {{ Name = name, Path = "/SGL/Image plane", Description = description }}
+  }}
+end
+
+-- Size is the half-width. Colour layers combine EPIC's 680, 551 and 443 nm bands.
+local Glow = imagePlaneLayer("SGL_ImageGlow", "Image-plane brightness (colour, stretched)",
+  "image_plane_stretched_rgb.png", {ext_span:.3f} / 2, true,
+  "What the telescopes record across the image plane with the physical SGL blur, per band.")
+local GlowBlue = imagePlaneLayer("SGL_ImageGlowBlue", "Image-plane brightness (443 nm, as in the thesis)",
+  "image_plane_stretched.png", {ext_span:.3f} / 2, false,
+  "The single blue band the thesis used. The sample points are coloured from this band.")
+local GlowThesis = imagePlaneLayer("SGL_ImageGlowThesis", "Thesis PSF (too sharp)",
+  "image_plane_thesis_psf_rgb.png", {ext_span:.3f} / 2, false,
+  "The thesis PSF put 65% of the light in the directly imaged spot; the physical share is 0.4%.")
+local Truth = imagePlaneLayer("SGL_ImageTruth", "Planet (ground truth)",
+  "truth_rgb.png", ImageDiameter / 2, false,
+  "DSCOVR EPIC, 13 June 2015, 680/551/443 nm. The thesis used the 443 nm band.")
+local Recovered = imagePlaneLayer("SGL_ImageRecovered", "Recovered image (SNR 10)",
+  "recovered_filtered_snr10_rgb.png", ImageDiameter / 2, false,
+  "Deconvolved band by band from the image-plane measurements at recovered SNR ~12.")
+
+local Samples = {{
+  Identifier = "SGL_Samples",
+  Parent = ImagePlane.Identifier,
+  Renderable = {{
+    Type = "RenderablePointCloud",
+    File = asset.resource("data/formation12_samples.csv"),
+    Unit = "m",
+    Coloring = {{
+      ColorMapping = {{ File = colormaps.Uniform.Inferno, Parameter = "brightness" }}
+    }},
+    SizeSettings = {{ ScaleExponent = 1.2 }}
+  }},
+  GUI = {{ Name = "Formation samples", Path = "/SGL",
+    Description = "One point per stop inside the disk, coloured by the brightness recorded there." }}
+}}
+
+local nodes = {{ Frame, FocalStart, FocalEnd, ImagePlane, SunToFocal, SunDirection, SunMarker,
+  SunLabel, Glow, GlowBlue, GlowThesis, Truth, Recovered, Samples }}
+for _, n in ipairs(axisNodes) do table.insert(nodes, n) end
+for _, n in ipairs(axisLines) do table.insert(nodes, n) end
+
+asset.onInitialize(function()
+  for _, n in ipairs(nodes) do openspace.addSceneGraphNode(n) end
+end)
+
+asset.onDeinitialize(function()
+  for i = #nodes, 1, -1 do openspace.removeSceneGraphNode(nodes[i]) end
+end)
+
+for _, n in ipairs(nodes) do asset.export(n) end
+
+asset.meta = {{
+  Name = "Solar gravitational lens",
+  Description = "Focal line, image plane and samples for an SGL imaging mission at 650 AU.",
+  Author = "Andrew Simon",
+  License = "MIT"
+}}
+'''
+    with open(os.path.join(OUT, "sgl.asset"), "w", encoding="utf-8") as f:
+        f.write(main_asset)
+
+    thrust, dwell = traj["thrust_m_s2"], traj["dwell_s"]
+    parts = ['''-- Twelve spacecraft sweeping the SGL image plane in a rigid line, 120 m apart.
+-- Generated by portfolio/openspace/build_asset.py: bang-coast-bang reference paths.
+
+local sgl = asset.require("./sgl")
+''']
+    names = []
+    for sc, sc_stops in sorted(stops.items()):
+        keys = keyframes_for(sc_stops, dwell, thrust)
+        color = PALETTE[sc % len(PALETTE)]
+        kf = ",\n".join(f'    ["{iso(t)}"] = {{ Type = "StaticTranslation", Position = {{ {p[0]:.3f}, {p[1]:.3f}, 0 }} }}'
+                        for t, p in keys)
+        parts.append(f'''
+local Path{sc:02d} = {{
+  Type = "TimelineTranslation",
+  Keyframes = {{
+{kf}
+  }}
+}}
+
+local SC{sc:02d} = {{
+  Identifier = "SGL_SC{sc:02d}",
+  Parent = sgl.SGL_ImagePlane.Identifier,
+  Transform = {{ Translation = Path{sc:02d} }},
+  Renderable = {{
+    Type = "RenderablePointCloud",
+    File = asset.resource("data/origin.csv"),
+    Unit = "m",
+    Coloring = {{ FixedColor = {lua_vec(color)} }},
+    SizeSettings = {{ ScaleExponent = 1.4 }}
+  }},
+  BoundingSphere = 10,
+  GUI = {{ Name = "Spacecraft {sc + 1}", Path = "/SGL/Formation" }}
+}}
+
+local Trail{sc:02d} = {{
+  Identifier = "SGL_SC{sc:02d}_Trail",
+  Parent = sgl.SGL_ImagePlane.Identifier,
+  Renderable = {{
+    Type = "RenderableTrailTrajectory",
+    Translation = Path{sc:02d},
+    Color = {lua_vec(color)},
+    StartTime = "{iso(0)}",
+    EndTime = "{iso(end_s)}",
+    SampleInterval = 600,
+    EnableFade = false,
+    LineWidth = 1.5
+  }},
+  GUI = {{ Name = "Spacecraft {sc + 1} trail", Path = "/SGL/Formation" }}
+}}
+''')
+        names += [f"SC{sc:02d}", f"Trail{sc:02d}"]
+    parts.append(f'''
+local nodes = {{ {", ".join(names)} }}
+
+asset.onInitialize(function()
+  for _, n in ipairs(nodes) do openspace.addSceneGraphNode(n) end
+end)
+
+asset.onDeinitialize(function()
+  for i = #nodes, 1, -1 do openspace.removeSceneGraphNode(nodes[i]) end
+end)
+''')
+    with open(os.path.join(OUT, "sgl_formation.asset"), "w", encoding="utf-8") as f:
+        f.write("".join(parts))
+    with open(os.path.join(OUT, "data", "origin.csv"), "w", newline="") as f:
+        f.write("x,y,z\n0,0,0\n")
+
+    profile = {
+        "assets": ["base_blank", "base_keybindings", "events/toggle_sun",
+                   "scene/solarsystem/sun/sun", "scene/solarsystem/sun/glare",
+                   "scene/solarsystem/planets/planets", "scene/digitaluniverse/stars",
+                   "${USER_ASSETS}/sgl/sgl", "${USER_ASSETS}/sgl/sgl_formation"],
+        # Looking back toward the Sun from just behind the image plane, slightly off-axis:
+        # the image plane, formation, focal line and the Sun at its end are all in view.
+        "camera": {"type": "setNavigationState", "anchor": "SGL_ImagePlane", "aim": "",
+                   "frame": "SGL_ImagePlane",
+                   "position": {"x": 970.0, "y": 300.0, "z": 3000.0},
+                   "up": {"x": 0.0, "y": 1.0, "z": 0.0}, "yaw": 0.0},
+        "delta_times": [1.0, 60.0, 600.0, 3600.0, 21600.0, 86400.0],
+        "time": {"type": "absolute", "value": iso(0), "is_paused": True},
+        "meta": {"name": "SGL", "author": "Andrew Simon", "version": "1.0",
+                 "description": "Solar gravitational lens imaging mission at 650 AU."},
+        "version": {"major": 1, "minor": 5},
+    }
+    with open(os.path.join(OUT, "sgl.profile"), "w") as f:
+        json.dump(profile, f, indent=2)
+
+    # Layer C: the telescope view. Needs the Sgl module, so only the source build loads it.
+    with open(os.path.join(OUT, "sgl_telescope.asset"), "w", encoding="utf-8") as f:
+        f.write(f'''-- The view from one spacecraft's telescope, looking back at the Sun: the planet lensed
+-- into an Einstein ring. Needs the Sgl module (OpenSpace built from source with
+-- OPENSPACE_MODULE_SGL=ON). Generated by portfolio/openspace/build_asset.py.
+-- Press M to step the planet size through thin, medium and bold.
+
+local sgl = asset.require("./sgl")
+local formation = asset.require("./sgl_formation")
+
+local Telescope = {{
+  Identifier = "SGL_Telescope",
+  Name = "Telescope view",
+  Type = "ScreenSpaceSglTelescope",
+  PlanetTexture = asset.resource("textures/truth_rgb.png"),
+  TelescopeNode = "SGL_SC{TELESCOPE_SC:02d}",
+  ImagePlaneNode = sgl.SGL_ImagePlane.Identifier,
+  SunNode = "SunCenter",
+  PlanetRadius = {tex["geometry"]["planet_diameter_m"] / 2:.1f},
+  TargetDistance = {tex["geometry"]["target_distance_pc"]} * 3.0856775814913673e16,
+  PlanetSize = 1,
+  OcculterRadius = 1.02,
+  CoronaStrength = 0.06,
+  Eyepiece = true,
+  -- Upper left, clear of the image plane, focal line and Sun; not turned toward the camera,
+  -- which would foreshorten it into an ellipse this far off-axis
+  CartesianPosition = {{ -1.05, 0.42, -2.0 }},
+  Scale = 0.38,
+  FaceCamera = false
+}}
+
+-- Matches the module's Magnification property for the three planet sizes at 650 AU.
+local Labels = {{ [0] = "22,600", [1] = "56,600", [2] = "135,700" }}
+local function labelText(size)
+  -- Padded to the longest label: the text box is sized from the first text it shows
+  local text = "Telescope: planet x" .. Labels[size] .. " (M)"
+  return text .. string.rep(" ", 30 - #text)
+end
+
+local Label = {{
+  Identifier = "SGL_TelescopeLabel",
+  Name = "Telescope view label",
+  Type = "ScreenSpaceText",
+  Text = labelText(1),
+  CartesianPosition = {{ -1.05, -0.03, -2.0 }},
+  Scale = 0.4,
+  FaceCamera = false
+}}
+
+local NextPlanetSize = {{
+  Identifier = "sgl.telescope.next_planet_size",
+  Name = "Next planet size",
+  Command = [[
+    local uri = "ScreenSpace.SGL_Telescope.PlanetSize"
+    local size = (openspace.propertyValue(uri) + 1) % 3
+    openspace.setPropertyValueSingle(uri, size)
+    local labels = {{ [0] = "22,600", [1] = "56,600", [2] = "135,700" }}
+    local text = "Telescope: planet x" .. labels[size] .. " (M)"
+    openspace.setPropertyValueSingle(
+      "ScreenSpace.SGL_TelescopeLabel.Text", text .. string.rep(" ", 30 - #text)
+    )
+  ]],
+  Documentation = "Steps the telescope view through the thin, medium and bold planet sizes",
+  GuiPath = "/SGL",
+  IsLocal = false
+}}
+
+asset.onInitialize(function()
+  openspace.addScreenSpaceRenderable(Telescope)
+  openspace.addScreenSpaceRenderable(Label)
+  openspace.action.registerAction(NextPlanetSize)
+  openspace.bindKey("M", NextPlanetSize.Identifier)
+end)
+
+asset.onDeinitialize(function()
+  openspace.clearKey("M")
+  openspace.action.removeAction(NextPlanetSize)
+  openspace.removeScreenSpaceRenderable(Label)
+  openspace.removeScreenSpaceRenderable(Telescope)
+end)
+''')
+    telescope_profile = dict(profile)
+    telescope_profile["assets"] = profile["assets"] + ["${USER_ASSETS}/sgl/sgl_telescope"]
+    telescope_profile["meta"] = dict(profile["meta"], name="SGL telescope",
+                                     description="SGL mission at 650 AU with the telescope view (source build).")
+    with open(os.path.join(OUT, "sgl_telescope.profile"), "w") as f:
+        json.dump(telescope_profile, f, indent=2)
+
+    print(f"wrote {OUT}: {len(stops)} spacecraft, mission {end_s / 86400:.1f} days from {iso(0)}")
+    if not args.no_install:
+        dst = os.path.join(OPENSPACE_ASSETS, "sgl")
+        shutil.rmtree(dst, ignore_errors=True)
+        shutil.copytree(OUT, dst, ignore=shutil.ignore_patterns("*.profile"))
+        prof_dir = os.path.join(os.path.dirname(OPENSPACE_ASSETS), "profiles")
+        os.makedirs(prof_dir, exist_ok=True)
+        for name in ("sgl.profile", "sgl_telescope.profile"):
+            shutil.copy(os.path.join(OUT, name), os.path.join(prof_dir, name))
+        print("installed to", dst)
+
+
+if __name__ == "__main__":
+    main()

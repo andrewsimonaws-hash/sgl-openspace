@@ -1,0 +1,43 @@
+{
+  "description": "Bang-coast-bang reference paths across the SGL image plane (layer A).",
+  "frame": "image-plane metres, origin on the optical axis, x right, y up (matches texture columns; rows count down from +y)",
+  "image_radius_m": 669.9745302216918,
+  "thrust_m_s2": 6e-05,
+  "pareto_stretch": 2.35,
+  "dwell_s": 3000.0,
+  "row_spacing_m": 30.0,
+  "formation": {
+    "agents": 12,
+    "spacing_m": 120.0
+  },
+  "brightness": "noiseless image-plane value at each stop, from textures/image_plane.npy, max = 1",
+  "scenarios": {
+    "m0_spiral": {
+      "csv": "m0_spiral.csv",
+      "samples_csv": "m0_spiral_samples.csv",
+      "agents": 1,
+      "duration_days": 15.789416657073275,
+      "dense_dt_s": 300.0,
+      "samples_in_disk": 160,
+      "min_separation_m": null
+    },
+    "raster_single": {
+      "csv": "raster_single.csv",
+      "samples_csv": "raster_single_samples.csv",
+      "agents": 1,
+      "duration_days": 115.12352756181805,
+      "dense_dt_s": 1800.0,
+      "samples_in_disk": 1569,
+      "min_separation_m": null
+    },
+    "formation12": {
+      "csv": "formation12.csv",
+      "samples_csv": "formation12_samples.csv",
+      "agents": 12,
+      "duration_days": 13.428038686325804,
+      "dense_dt_s": 300.0,
+      "samples_in_disk": 1568,
+      "min_separation_m": 119.99999999999994
+    }
+  }
+}

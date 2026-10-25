@@ -1,0 +1,7 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# The results folder is committed; this zip duplicates it
+colab/fbpinn_corrected_psf_results.zip
