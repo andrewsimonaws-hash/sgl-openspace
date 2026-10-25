@@ -199,7 +199,7 @@ local SunToFocal = {{
   GUI = {{ Name = "Sun to focal line", Path = "/SGL" }}
 }}
 
--- At 650 AU the Sun's disk is 1.5 arcseconds across, and markers placed at the Sun itself
+-- At 650 AU the Sun's disk is about 3 arcseconds across, and markers placed at the Sun itself
 -- don't draw from out here (only lines and orbit trails do). So the marker stands in on the
 -- line of sight: 1e6 km sunward along the focal axis. Seen from a camera within a few km of
 -- the axis it lands within ~1e-6 rad of the true Sun, exactly where the focal line ends.

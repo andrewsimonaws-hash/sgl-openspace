@@ -88,8 +88,8 @@ namespace {
     constexpr Property::PropertyInfo PlanetSizeInfo = {
         "PlanetSize",
         "Planet size",
-        "How much the planet is magnified so it can be seen. The real planet is about a "
-        "millionth of an arcsecond across, far below what any telescope resolves.",
+        "How much the planet is magnified so it can be seen. The real planet is about three "
+        "millionths of an arcsecond across, far below what any telescope resolves.",
         Property::Visibility::User
     };
 
