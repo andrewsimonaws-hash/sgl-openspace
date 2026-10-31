@@ -35,7 +35,7 @@ The profile opens paused at the mission start. The camera sits just behind the i
 - **Rotation tables:** a 3×3 `StaticRotation` table is read column by column. The generator writes the columns: the local x, y and z axes in galactic coordinates.
 - **Line nodes:** `RenderableNodeLine` computes its endpoints in world space, then also applies its own node's transform. Line nodes must therefore hang off `SolarSystemBarycenter`, which has no rotation or offset. Parented to the rotated SGL frame, the focal line came out pointing the wrong way.
 - **Long lines:** the endpoints go to the GPU as 32-bit floats relative to the camera's focus, so one 452 AU line would be drawn up to ~1000 km off near the image plane. The axis is segmented for that reason.
-- **Screenshots:** the left monitor is 4K at 250% scaling. Window captures miss most of the frame, so use `openspace.takeScreenshot()` (3840×2104).
+- **Screenshots:** on a high-DPI display, window captures can miss part of the frame, so use `openspace.takeScreenshot()`.
 - **Image layers:** `RenderablePlaneImageLocal` needs `BlendMode = "Additive"`. Otherwise the texture's black surround is opaque and hides the stars, samples and spacecraft. `Size` is the half-width.
 - **Verified in the running app:**
   - The image plane sits 650.0000 AU from the Sun along the intended direction.
@@ -46,7 +46,7 @@ The profile opens paused at the mission start. The camera sits just behind the i
 
 `module_sgl/` is an OpenSpace module, `Sgl`, with one screen-space renderable, `ScreenSpaceSglTelescope`. It shows what one spacecraft's telescope sees when it looks back at the Sun: the planet lensed into an Einstein ring around a coronagraph occulter, drawn in a circular eyepiece.
 
-- **What it computes:** the shader `module_sgl/shaders/telescope_fs.glsl` is a line-for-line port of `layer_c_proto/ring_view.py`. Per pixel, it inverts the point-mass lens equation in units of the Einstein angle and reads the planet texture there. Each frame, the C++ side works out three things:
+- **What it computes:** the shader `module_sgl/shaders/telescope_fs.glsl` is a line-for-line port of `layer_c_proto/ring_view.py`. It ray-traces each pixel back through the point-mass lens equation, in units of the Einstein angle, and reads the planet texture there. Each frame, the C++ side works out three things:
   - the Einstein angle and the Sun's size, from the image plane's distance to the Sun
   - the telescope's position in image-plane radii, from the spacecraft node
   - the magnification shown on screen
@@ -64,8 +64,7 @@ The profile opens paused at the mission start. The camera sits just behind the i
   - PNG planet textures already carry their display gain, so the module's gain defaults to 1.
   - A dashboard property readout never resolved the screen-space property, so the label is a `ScreenSpaceText` that the M action updates.
 
-## Not done yet
+## Next steps
 
-- **Samples appear all at once.** They aren't revealed as the formation reaches them; a time-filtered point cloud could fix that.
-- **The fisheye window and the default window open partly above the left monitor.** They need a nudge after launch.
-- **Week 3:** the instrument-real view (decision B3). It's a second pass that draws the ring as a 1 m telescope at 443 nm would record it, behind a switch.
+- **Reveal the samples over time.** They currently appear all at once; a time-filtered point cloud would reveal each one as the formation reaches it.
+- **An instrument view.** A second pass that draws the ring as a 1 m telescope at 443 nm would record it, behind a switch.

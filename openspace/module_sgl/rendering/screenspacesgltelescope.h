@@ -31,7 +31,7 @@ namespace openspace {
  * What a telescope in the solar gravitational lens image plane sees when it looks back at
  * the Sun: the target planet lensed into an Einstein ring around a coronagraph occulter.
  *
- * Every pixel inverts the point-mass lens equation, beta = theta - theta/|theta|^2 (angles
+ * Every pixel is ray-traced through the point-mass lens equation, beta = theta - theta/|theta|^2 (angles
  * in units of the Einstein angle), and reads the planet texture where the ray came from.
  * The planet is magnified so it can be seen at all; the factor is shown in the
  * `Magnification` property. The view is drawn into an offscreen texture and shown as a

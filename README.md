@@ -26,7 +26,7 @@ It grew out of my senior thesis on autonomy for this mission. Every physical num
 |---|---|---|
 | A · physics data | Python. Puts the real DSCOVR EPIC Earth at 30 pc and blurs it with the aperture-averaged SGL PSF from Toth & Turyshev (2021). Outputs textures, measurements, recoveries and trajectory CSVs. | [`layer_a/`](layer_a) |
 | B · mission scene | Lua assets generated from layer A: focal line, image plane, formation, samples | [`openspace/build_asset.py`](openspace/build_asset.py), [`openspace/sgl/`](openspace/sgl) |
-| C · telescope view | `Sgl` OpenSpace module. `ScreenSpaceSglTelescope` inverts the lens equation per pixel on the GPU and follows a spacecraft node. | [`openspace/module_sgl/`](openspace/module_sgl) |
+| C · telescope view | `Sgl` OpenSpace module. `ScreenSpaceSglTelescope` ray-traces each pixel through the lens equation on the GPU and follows a spacecraft node. | [`openspace/module_sgl/`](openspace/module_sgl) |
 | Prototype | The same telescope math in numpy, used as the reference for the GPU | [`layer_c_proto/`](layer_c_proto) |
 | Thesis rerun | The thesis FBPINN reconstruction under the corrected physics (Colab) | [`colab/`](colab) |
 

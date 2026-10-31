@@ -3,15 +3,15 @@
 #
 # This reruns the thesis Module 1 reconstruction with the physical solar gravitational
 # lens blur. The aperture-averaged PSF is from Toth & Turyshev 2021, arXiv:2012.05477,
-# eq. 3. It's the same model as `portfolio/layer_a/sgl_psf.py`. It fixes four problems
-# from REVISION_NOTES:
+# eq. 3. It's the same model as `layer_a/sgl_psf.py`. It fixes four problems found when
+# the thesis code was audited:
 #
-# - **R4:** the physical PSF puts about 0.4% of the light in the directly imaged spot,
+# - **PSF:** the physical PSF puts about 0.4% of the light in the directly imaged spot,
 #   not 65%.
-# - **R3:** the data and the FBPINN use the *same* forward operator, a zero-padded linear
-#   convolution, so there's no pixel offset.
-# - **R5:** the corona noise is uniform across the image plane.
-# - **R1/R2:** there's no oracle fill and no oracle acquisition. Every method sees only
+# - **Operator:** the data and the FBPINN use the *same* forward operator, a zero-padded
+#   linear convolution, so there's no pixel offset.
+# - **Noise:** the corona noise is uniform across the image plane.
+# - **No oracles:** there's no oracle fill and no oracle acquisition. Every method sees only
 #   the noisy measurements.
 #
 # It compares five methods on the same measurements:
@@ -226,7 +226,7 @@ def pn_apply(p, crd):
 MODELS = {
     "fbpinn": (lambda k: init_layers(k, FB_LAYERS, NS1 * NS1), lambda p: fb_apply(p, POU, LFF).reshape(N, N)),
     "pinn": (lambda k: init_layers(k, PN_LAYERS), lambda p: pn_apply(p, COORDS).reshape(N, N)),
-    # The same loss on a raw pixel grid: the fair non-neural baseline (REVISION_NOTES R1).
+    # The same loss on a raw pixel grid: the fair non-neural baseline.
     "grid_tv": (None, lambda p: p),
 }
 

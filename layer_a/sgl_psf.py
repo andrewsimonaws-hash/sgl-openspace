@@ -6,7 +6,7 @@ brightness value per position: the light of the Einstein ring it sees. Every poi
 the planet contributes to that value, weighted by the aperture-averaged PSF mu(rho)
 (their eq. 2-3), which is 1 for the directly imaged spot and falls off as d/(4 rho).
 
-This replaces the thesis PSF (REVISION_NOTES R4), which put 34-67% of the light in the
+This replaces the thesis PSF, which put 34-67% of the light in the
 directly imaged pixel; the physical share is a fraction of a percent.
 """
 import numpy as np

@@ -2,7 +2,7 @@
 
 Offline Python that produces the data the OpenSpace scene displays. It covers what the solar gravitational lens does to an exoplanet's image, what a telescope sweeping the image plane records, and the paths the spacecraft fly to record it.
 
-This layer replaces the thesis PSF with the physical one (REVISION_NOTES R4). The thesis put 65% of the light at the center of a 256² image into the directly imaged pixel. The physical share is **0.4%**, 161 times less. That gap is what makes SGL imaging hard, and the visualization is built to show it.
+This layer replaces the thesis PSF with the physical one. The thesis put 65% of the light at the center of a 256² image into the directly imaged pixel. The physical share is **0.4%**, 161 times less. That gap is what makes SGL imaging hard, and the visualization is built to show it.
 
 ## Run it
 
@@ -90,7 +90,8 @@ Each scenario has two CSVs:
 - `<name>.csv` is the dense path: `t_s, sc, x_m, y_m, state`, where state is hop or dwell.
 - `<name>_samples.csv` has one row per stop: `t_s, sc, x_m, y_m, in_disk, brightness`. Brightness is the noiseless image-plane value there, read from `image_plane.npy`.
 
-## Not done yet
+## Not modeled yet
 
-- **FBPINN reconstructions under the corrected PSF.** These need the thesis training code and a GPU (Colab). The plain and filtered recoveries above cover the visualization for now.
 - **Image-plane drift (0.1 m/s) and corona noise.** Neither is in these paths.
+
+The FBPINN rerun under the corrected PSF is in [`colab/`](../colab).
