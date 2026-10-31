@@ -1,8 +1,9 @@
 """Record the reel's session in a running OpenSpace (source build, sgl_telescope profile).
 
-About 20 s of real time at 4 hours per second: spacecraft 6 crosses the planet's image, so
-its eyepiece goes from arcs to a full Einstein ring and back. The planet size steps
-medium -> bold -> thin -> medium on the way, the same as pressing M. Playback
+About 20 s of real time at 4 hours per second, starting 6 hours into the mission, while
+spacecraft 6 is inside the planet's image: its eyepiece shows the full Einstein ring as the
+planet size steps medium -> bold -> thin -> medium, the same as pressing M. (Earlier in the
+mission, outside the image, the eyepiece shows two arcs instead.) Playback
 (export_frames.py) then renders it frame by frame.
 
 The flat take looks back toward the Sun from just behind the image plane, slightly off the

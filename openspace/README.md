@@ -52,7 +52,7 @@ The profile opens paused at the mission start. The camera sits just behind the i
   - the magnification shown on screen
 - **Properties:** `PlanetSize` (three presets), `Magnification` (read-only), `TelescopeNode` or `ManualOffset`, `OcculterRadius`, `CoronaStrength`, `Eyepiece`, `Resolution`, and `SaveFrame`, which writes the view to a PNG for testing.
 - **Install and build:** run `python install_module.py`. Then configure with `-DOPENSPACE_MODULE_SGL=ON` and build. Only the source build can load `sgl_telescope.asset`, through the `sgl_telescope` profile.
-- **Controls:** **M** steps the planet size through ×22,600, ×56,600 and ×135,700, and the label above the eyepiece follows.
+- **Controls:** **M** steps the planet size through ×22,600, ×56,600 and ×135,700, and the label below the eyepiece follows.
 
 **Verified against the Python reference** (u = (0.35, 0.2), κ = 0.05, 640 px; rerun with `tools/compare_gpu_frame.py`, which compares the committed GPU frame `layer_c_proto/out/gpu_frame_c_occulter.png` or captures a fresh one):
 - **Match:** r = 0.9992, mean difference 1.2/255 on the ring, and 0.17% of pixels off by more than 16/255 (8-bit texture versus float reference). Mirrored or rotated frames score r ≈ 0.66, so the orientation is right.
