@@ -38,7 +38,7 @@ It grew out of my senior thesis on autonomy for this mission. Every physical num
 | Deconvolution penalty, simulated vs paper | 0.83/√N vs 0.878/√N (same scaling, 6% apart) |
 | Ring radius vs θ<sub>E</sub> at 650 AU | 1.6076″ vs 1.6076″ |
 | Ray-traced ring light vs wave-optics image plane (81 positions) | r = 1.0000, ratio spread 0.2%. Flipped orientations fit 23–35× worse. |
-| GPU frame vs Python reference | r = 0.9992, mean difference 1.2/255 on the ring |
+| GPU frame vs Python reference | r = 0.9992, mean difference 1.2/255 on the ring (`openspace/tools/compare_gpu_frame.py`) |
 | Scene geometry in OpenSpace | Image plane 650.0000 AU from the Sun, on the intended axis |
 
 ## Notes
