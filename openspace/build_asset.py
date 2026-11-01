@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 import numpy as np
 from PIL import Image
 
+import intro
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAYER_A = os.path.join(HERE, "..", "layer_a", "out")
 OUT = os.path.join(HERE, "sgl")
@@ -34,7 +36,7 @@ HOP_SUBSAMPLES = 6
 TELESCOPE_SC = 5        # whose view the telescope inset shows (mid-formation)
 PALETTE = [(1.0, 0.66, 0.25), (0.45, 0.68, 1.0), (0.55, 0.88, 0.6), (0.95, 0.5, 0.8)]
 TEXTURES = ["image_plane_stretched_rgb.png", "image_plane_thesis_psf_rgb.png", "truth_rgb.png",
-            "recovered_filtered_snr10_rgb.png"]
+            "truth_rgba_rgb.png", "recovered_filtered_snr10_rgb.png"]
 BIO_TEXTURES = ["bio_ndvi_truth.png", "bio_ndvi_recorded.png", "bio_ndvi_snr10.png", "bio_ndvi_tt_fig4.png",
                 "bio_o2_truth.png", "bio_o2_snr10.png"]
 # B steps through these: (layer, caption, eyepiece texture). With the telescope view loaded,
@@ -646,8 +648,16 @@ asset.onDeinitialize(function()
   openspace.removeScreenSpaceRenderable(Telescope)
 end)
 ''')
+    # The reel's opening (planet, light rays, captions), hidden until the intro recording plays.
+    b = geo["einstein_ring_in_solar_radii"] * intro.R_SUN
+    with open(os.path.join(OUT, "sgl_intro.asset"), "w", encoding="utf-8") as f:
+        f.write(intro.asset_lua(b))
+    intro.draw_bend_diagram(os.path.join(OUT, "textures", "intro_bend_diagram.png"))
+    intro.draw_photon_sprite(os.path.join(OUT, "textures", "intro_photon.png"))
+
     telescope_profile = dict(profile)
-    telescope_profile["assets"] = profile["assets"] + ["${USER_ASSETS}/sgl/sgl_telescope"]
+    telescope_profile["assets"] = profile["assets"] + ["${USER_ASSETS}/sgl/sgl_telescope",
+                                                       "${USER_ASSETS}/sgl/sgl_intro"]
     telescope_profile["meta"] = dict(profile["meta"], name="SGL telescope",
                                      description="SGL mission at 650 AU with the telescope view (source build).")
     with open(os.path.join(OUT, "sgl_telescope.profile"), "w") as f:

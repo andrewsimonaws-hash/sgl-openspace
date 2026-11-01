@@ -10,7 +10,19 @@ The Sun bends light from a distant planet into a focus that starts 548 AU away. 
 
 It grew out of my senior thesis on autonomy for this mission. Every physical number on screen is checked against published optics or against a second, independent method.
 
-**Clips:** [flat, 20 s](media/sgl_telescope_flat.mp4) · [dome master (fisheye), 21 s](media/sgl_telescope_dome.mp4)
+**Clips:** [flat with the opening, 59 s](media/sgl_telescope_flat.mp4) · [dome master (fisheye), 21 s](media/sgl_telescope_dome.mp4)
+
+## The opening
+
+The flat clip starts by following the planet's light all the way to the image (about 38 s):
+1. **Overview:** the planet and the Sun, 30 parsecs apart, with a side diagram of how the Sun bends light.
+2. **The planet:** a flight out to an Earth twin 98 light-years away, drawn with the real Earth from DSCOVR EPIC.
+3. **The trip:** a pulse of light leaves the planet and the camera rides with it. The time-lapse is logarithmic, so the distance shrinks by a steady factor each second, and a clock runs from February 1977 to December 2074.
+4. **The bend:** the pulse skims 0.09 solar radii above the Sun's surface, shown at half the speed of light.
+5. **Convergence:** rays from around the whole limb narrow into a cone 1.5 million km wide and meet 650 AU out, 3.75 days later.
+6. **The image:** the camera swings round to the reel's view of the image plane.
+
+The rays are true geometry. They pass the Sun at the Einstein radius for 650 AU (1.09 solar radii) and meet on the axis there. The bend itself is 1.6″, too small to see, so only the overview diagram exaggerates it, and it says so. [`openspace/tools/make_intro.py`](openspace/tools/make_intro.py) writes every frame of the camera path, so playback is exact.
 
 ## What's on screen
 
@@ -53,7 +65,7 @@ Limits:
 | Layer | What | Where |
 |---|---|---|
 | A · physics data | Python. Puts the real DSCOVR EPIC Earth at 30 pc and blurs it with the aperture-averaged SGL PSF from Toth & Turyshev (2021). Outputs textures, measurements, recoveries, biosignature maps and trajectory CSVs. | [`layer_a/`](layer_a) |
-| B · mission scene | Lua assets generated from layer A: focal line, image plane, formation, samples, biosignature maps | [`openspace/build_asset.py`](openspace/build_asset.py), [`openspace/sgl/`](openspace/sgl) |
+| B · mission scene | Lua assets generated from layer A: focal line, image plane, formation, samples, biosignature maps, and the opening's planet, rays and captions | [`openspace/build_asset.py`](openspace/build_asset.py), [`openspace/sgl/`](openspace/sgl) |
 | C · telescope view | `Sgl` OpenSpace module. `ScreenSpaceSglTelescope` ray-traces each pixel through the lens equation on the GPU and follows a spacecraft node. | [`openspace/module_sgl/`](openspace/module_sgl) |
 | Prototype | The same telescope math in numpy, used as the reference for the GPU | [`layer_c_proto/`](layer_c_proto) |
 | Thesis rerun | The thesis FBPINN reconstruction under the corrected physics (Colab) | [`colab/`](colab) |
@@ -106,6 +118,7 @@ Requires Windows, Visual Studio 2026 (MSVC 19.50), CMake 4.0 or newer, OpenSpace
    bin/RelWithDebInfo/OpenSpace.exe --profile sgl_telescope --bypassLauncher
    ```
 6. **Reel:** with OpenSpace running, use `openspace/tools/record_reel.py [--dome]`, then `export_frames.py <recording> 30`, then `encode_clip.py out.mp4`.
+7. **Opening:** `make_intro.py` writes the opening's recording. Export it straight before the flat reel, in the same session, then join the two with `encode_clip.py out.mp4 --runs 2`.
 
 The scripts assume my local paths in a few places (`OPENSPACE_ASSETS` in `build_asset.py`, `DST` in `install_module.py`, the recordings folder). Change them for your machine.
 
@@ -116,6 +129,7 @@ layer_a/          physics model, textures, trajectories (Python)
 layer_c_proto/    telescope-view prototype, validation, option renders (Python)
 openspace/
   build_asset.py  generates the Lua assets and profiles
+  intro.py        the opening: geometry, asset and bending diagram
   sgl/            generated assets, textures, data
   module_sgl/     the Sgl C++ module and shaders
   tools/          Lua-over-TCP control, recording, frame export, encoding

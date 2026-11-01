@@ -30,6 +30,18 @@ To launch, run this from `C:\Users\andre\OpenSpace\v0.22.0`:
 
 Press **B** to step through the biosignature maps, with a caption for each, and then back to the normal view. In the `sgl_telescope` profile the eyepiece switches to the same false color. The numbers behind the maps are in [`../layer_a/README.md`](../layer_a/README.md#biosignatures-outbiosignatures).
 
+**The opening** (`sgl_intro.asset`, loaded by the `sgl_telescope` profile, all hidden until its recording plays):
+
+| Node | What it shows |
+|---|---|
+| `SGL_IntroPlanet` | The planet at 30 pc in the target direction: a billboard of the EPIC Earth, Earth-sized |
+| `SGL_Photon` | The light pulse. `tools/make_intro.py` moves it and sizes it every frame. |
+| `SGL_RayLimb0`–`7`, `SGL_RayIn0`–`7`, `SGL_RayOut0`–`7` | Eight rays from the planet past the Sun at 1.09 solar radii, then on to the image plane. Ray 0 is the one followed. |
+| `SGL_IntroPlanetDot`, `SGL_IntroSunDot` | Markers that keep the planet and the Sun visible from parsecs away |
+| `SGL_IntroCaption`, `SGL_IntroClock`, `SGL_IntroDiagram`, name labels | Screen-space captions, the date and distance, the not-to-scale bending diagram, and names placed over the planet and the Sun each frame |
+
+`intro.py` holds the geometry and generates the asset, and `tools/make_intro.py` writes the recording. The recording ends on the flat reel's first keyframe and restores the reel's state (eyepiece, labels, Sun glare).
+
 The profile opens paused at the mission start. The camera sits just behind the image plane, slightly off the focal axis, looking back toward the Sun, so the image plane, the formation, the focal line and the Sun are all in view. At a delta time of 3600 (one hour per second), the whole sweep plays in about 5½ minutes.
 
 ## Things learned while building it (OpenSpace 0.22)
@@ -42,6 +54,14 @@ The profile opens paused at the mission start. The camera sits just behind the i
 - **Image layers:** `RenderablePlaneImageLocal` needs `BlendMode = "Additive"`. Otherwise the texture's black surround is opaque and hides the stars, samples and spacecraft. `Size` is the half-width. The biosignature maps instead use `"Normal"` with a transparent surround, sit 1 m toward the camera so they draw over the glow, and hide the far half of the focal line as a solid plane should.
 - **Per-point colors:** `RenderablePointCloud` colors points through a colormap, not per point. The generator quantizes the sample colors to a 256-entry palette (mean error 1.2/255), writes it as `data/sample_colors.cmap` and gives each point its index plus 0.5. The colormap is a 1D texture with nearest filtering, so with `ValueRange = { 0, 256 }` each point lands in the middle of its entry.
 - **Actions:** an action's command runs in the global scope, so the B action has its views and texture paths written into the command string.
+- **Dataset cache:** OpenSpace caches parsed point-cloud CSVs under `cache/` and didn't notice when the samples file gained a column. The color mapping quietly fell back to one color. After changing a CSV's columns, delete its folder in the cache.
+- **Writing a recording by hand** (what `make_intro.py` does):
+  - **Camera lines:** each is `camera <time> <sim time> <x y z> <w x y z> <scale> F <anchor>`. `F` puts position and rotation in the anchor's own frame, and the camera looks down its −z. `scale` is 50 divided by the distance to what the camera looks at, as the orbital navigator sets it; computed from the anchor distance instead, it can push nearby objects inside the near plane.
+  - **Order and parsing:** entries must be in time order. Parsing stops at the first bad line, which silently ends the playback there; a NumPy `np.float64(...)` repr did that.
+  - **Simulation time:** only the first entry sets it. After that it follows scripts, and playback queues a script on the frame it's reached but runs it on the next, so each frame's scripts go in a frame early.
+- **Moving anchors:** the camera is placed from its anchor's position before the scene updates, so it trails an anchor that moves each frame by one frame. The opening anchors to fixed nodes (the planet, the limb point, the image plane) and moves the light pulse by script.
+- **30 pc from the origin:** world positions in 32-bit floats are off by ~5×10¹⁰ m there. `RenderableLabel` and the point-cloud pulse didn't draw, so the names are screen-space text placed each frame and the pulse is a billboard plane. A scripted plane `Size` must be a table `{ w, h }`.
+- **The Sun up close:** in these profiles the Sun is drawn as glare only, and its textured globe (`Scene.Sun` with the `sun_texture` layer) is off. The opening swaps the glare for the globe within 3×10¹⁰ m of the limb.
 - **Verified in the running app:**
   - The image plane sits 650.0000 AU from the Sun along the intended direction.
   - Looking down the focal line, the texture's orientation matches the sample coordinates.
@@ -72,4 +92,5 @@ The profile opens paused at the mission start. The camera sits just behind the i
 ## Next steps
 
 - **Reveal the samples over time.** They currently appear all at once; a time-filtered point cloud would reveal each one as the formation reaches it.
+- **The opening on the dome.** It's framed for a flat screen. A dome version needs the camera pitched and the captions moved into the planetarium's front viewing zone.
 - **An instrument view.** A second pass that draws the ring as a 1 m telescope at 443 nm would record it, behind a switch.

@@ -9,7 +9,8 @@
     "scene/digitaluniverse/stars",
     "${USER_ASSETS}/sgl/sgl",
     "${USER_ASSETS}/sgl/sgl_formation",
-    "${USER_ASSETS}/sgl/sgl_telescope"
+    "${USER_ASSETS}/sgl/sgl_telescope",
+    "${USER_ASSETS}/sgl/sgl_intro"
   ],
   "camera": {
     "type": "setNavigationState",
