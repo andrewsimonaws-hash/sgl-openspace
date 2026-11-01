@@ -1501,7 +1501,8 @@ local Trail00 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 1 trail", Path = "/SGL/Formation" }
 }
@@ -3004,7 +3005,8 @@ local Trail01 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 2 trail", Path = "/SGL/Formation" }
 }
@@ -4507,7 +4509,8 @@ local Trail02 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 3 trail", Path = "/SGL/Formation" }
 }
@@ -6010,7 +6013,8 @@ local Trail03 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 4 trail", Path = "/SGL/Formation" }
 }
@@ -7513,7 +7517,8 @@ local Trail04 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 5 trail", Path = "/SGL/Formation" }
 }
@@ -9016,7 +9021,8 @@ local Trail05 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 6 trail", Path = "/SGL/Formation" }
 }
@@ -10519,7 +10525,8 @@ local Trail06 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 7 trail", Path = "/SGL/Formation" }
 }
@@ -12022,7 +12029,8 @@ local Trail07 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 8 trail", Path = "/SGL/Formation" }
 }
@@ -13525,7 +13533,8 @@ local Trail08 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 9 trail", Path = "/SGL/Formation" }
 }
@@ -15028,7 +15037,8 @@ local Trail09 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 10 trail", Path = "/SGL/Formation" }
 }
@@ -16531,7 +16541,8 @@ local Trail10 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 11 trail", Path = "/SGL/Formation" }
 }
@@ -18034,7 +18045,8 @@ local Trail11 = {
     EndTime = "2075-01-14T10:16:23",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   },
   GUI = { Name = "Spacecraft 12 trail", Path = "/SGL/Formation" }
 }

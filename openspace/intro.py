@@ -11,8 +11,12 @@ radius for 650 AU (1.09 solar radii) and meet on the axis at the image plane. Th
 exaggerates it and says so.
 """
 import math
+import os
+import sys
 
 from PIL import Image, ImageDraw, ImageFont
+
+LAYER_A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "layer_a")
 
 PC = 3.0856775814913673e16
 AU = 1.495978707e11
@@ -37,6 +41,26 @@ CAPTIONS = {
 }
 CLOCK_WIDTH = 58                # characters; the clock text is padded to this
 LABELS = {"planet": "Earth-like planet", "sun": "Sun", "distance": "30 parsecs = 98 light-years"}
+
+# The flat clip is rendered at SSAA times its output size and scaled down when encoded, which
+# smooths every edge, line and letter (with 4x MSAA instead, OpenSpace captured black frames).
+OUTPUT = (1920, 1080)
+SSAA = 2
+# Screen-space text is drawn at FONT_SIZE and then scaled to its Scale; 60 keeps the captions
+# and labels at least as sharp as the frames they land in.
+FONT_SIZE = 60
+PLANET_FILL = 0.9               # the planet's disk radius as a fraction of its texture's half-width
+CORONA_REACH = 4.0              # the Sun's glow texture spans this many solar radii from the center
+TEXT_BAND = 0.4                # opacity of the dark band behind the caption and the clock
+
+# The overview's layout in screen-space units (z = -2). The flat frames (hfov 80°, vfov 50.534°)
+# span x within ±2 tan 40° and y within ±2 tan 25.267°.
+WINDOW = (OUTPUT[0] * SSAA, OUTPUT[1] * SSAA)                     # rendered frames
+SCREEN = (2 * math.tan(math.radians(40.0)), 2 * math.tan(math.radians(50.534015846724 / 2)))
+PX = (WINDOW[0] / (2 * SCREEN[0]), WINDOW[1] / (2 * SCREEN[1]))     # pixels per unit
+SUN_XY = (0.35, -0.28)          # where the overview holds the Sun, under the diagram
+PANEL_X, PANEL_TOP = (-0.9, 0.9), 0.91                             # diagram panel edges
+BOX = (0.15, 0.06)              # half-width and half-height of the box around the Sun
 
 
 def planet_pos():
@@ -67,9 +91,23 @@ def lua_vec(v):
     return "{ " + ", ".join(f"{float(a):.17g}" for a in v) + " }"
 
 
+def panel_bottom():
+    """Bottom edge of the diagram panel, which keeps the diagram's 960 x 380 shape on screen."""
+    width_px = (PANEL_X[1] - PANEL_X[0]) * PX[0]
+    return PANEL_TOP - width_px * 380 / 960 / PX[1]
+
+
+def overlay_rect():
+    """Edges (x0, x1, y0, y1) of the overview overlay: the diagram, its lines and the box."""
+    m = 0.01                    # room for the strokes
+    return (min(PANEL_X[0], SUN_XY[0] - BOX[0]) - m, max(PANEL_X[1], SUN_XY[0] + BOX[0]) + m,
+            SUN_XY[1] - BOX[1] - m, PANEL_TOP + m)
+
+
 def asset_lua(b):
     """sgl_intro.asset: everything starts hidden; the intro recording switches it on."""
     limbs = limb_points(b)
+    x0, x1, y0, y1 = overlay_rect()
     limb_nodes = ",\n".join(
         f'''  {{ Identifier = "SGL_RayLimb{k}", Parent = sgl.SGL_Frame.Identifier,
     Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {lua_vec(p)} }} }},
@@ -93,8 +131,9 @@ local Planet = {{
   Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {lua_vec(planet_pos())} }} }},
   Renderable = {{
     Type = "RenderablePlaneImageLocal",
-    Texture = asset.resource("textures/truth_rgba_rgb.png"),
-    Size = {R_EARTH},
+    -- The EPIC Earth at 1024 px with a thin atmosphere glow past the limb
+    Texture = asset.resource("textures/intro_planet.png"),
+    Size = {R_EARTH / PLANET_FILL},
     Billboard = true,
     BlendMode = "Normal",
     Enabled = false
@@ -133,6 +172,7 @@ local function label(id, text)
     Text = text,
     CartesianPosition = {{ 0.0, 0.0, -2.0 }},
     Scale = 0.018 * #text,
+    FontSize = {FONT_SIZE},
     FaceCamera = false,
     Enabled = false
   }}
@@ -165,6 +205,22 @@ local Photon = {{
   GUI = {{ Name = "Light pulse", Path = "/SGL/Intro" }}
 }}
 
+-- A glow around the textured Sun for the close pass. It sits at the Sun's center facing the
+-- camera, so the globe hides the part over its disk and only the ring past the limb shows.
+local Corona = {{
+  Identifier = "SGL_IntroCorona",
+  Parent = sun.SunCenter.Identifier,
+  Renderable = {{
+    Type = "RenderablePlaneImageLocal",
+    Texture = asset.resource("textures/intro_corona.png"),
+    Size = {CORONA_REACH * R_SUN},
+    Billboard = true,
+    BlendMode = "Additive",
+    Enabled = false
+  }},
+  GUI = {{ Name = "Sun glow (close pass)", Path = "/SGL/Intro" }}
+}}
+
 -- Rays: planet to the limb, limb to the image plane. Line nodes sit on the barycenter (see
 -- sgl.asset); the camera's anchor stays near the camera, which keeps them precise.
 local LimbNodes = {{
@@ -183,8 +239,8 @@ for k, limb in ipairs(LimbNodes) do
         StartNode = leg[2],
         EndNode = leg[3],
         Color = hero and {{ 1.0, 0.95, 0.75 }} or {{ 0.95, 0.85, 0.55 }},
-        Opacity = hero and 1.0 or 0.55,
-        LineWidth = hero and 2.5 or 1.4,
+        Opacity = hero and 0.8 or 0.45,
+        LineWidth = hero and 2.0 or 1.4,
         Enabled = false
       }},
       GUI = {{ Name = "Ray " .. (k - 1) .. " " .. leg[1], Path = "/SGL/Intro", Hidden = true }}
@@ -199,6 +255,9 @@ local Caption = {{
   Text = "{pad(max(CAPTIONS.values(), key=len), width)}",
   CartesianPosition = {{ 0.0, -0.8, -2.0 }},
   Scale = 1.45,
+  FontSize = {FONT_SIZE},
+  -- A translucent band keeps the text legible over the Earth and the Sun
+  BackgroundColor = {{ 0.0, 0.0, 0.0, {TEXT_BAND} }},
   FaceCamera = false,
   Enabled = false
 }}
@@ -210,6 +269,8 @@ local Clock = {{
   Text = "{" " * CLOCK_WIDTH}",
   CartesianPosition = {{ 0.0, 0.84, -2.0 }},
   Scale = 0.85,
+  FontSize = {FONT_SIZE},
+  BackgroundColor = {{ 0.0, 0.0, 0.0, {TEXT_BAND} }},
   FaceCamera = false,
   Enabled = false
 }}
@@ -219,13 +280,14 @@ local Diagram = {{
   Name = "How the Sun bends light (not to scale)",
   Type = "ScreenSpaceImageLocal",
   TexturePath = asset.resource("textures/intro_bend_diagram.png"),
-  CartesianPosition = {{ 0.0, 0.6, -2.0 }},
-  Scale = 0.9,
+  -- The diagram with lines down to a box around the Sun, which the overview holds still
+  CartesianPosition = {{ {(x0 + x1) / 2:.6f}, {(y0 + y1) / 2:.6f}, -2.0 }},
+  Scale = {(x1 - x0) / 2:.6f},
   FaceCamera = false,
   Enabled = false
 }}
 
-local nodes = {{ Planet, PlanetDot, SunDot, Photon }}
+local nodes = {{ Planet, PlanetDot, SunDot, Photon, Corona }}
 for _, n in ipairs(LimbNodes) do table.insert(nodes, n) end
 for _, n in ipairs(Rays) do table.insert(nodes, n) end
 local screens = {{ Caption, Clock, Diagram, PlanetLabel, SunLabel, DistanceLabel }}
@@ -253,38 +315,112 @@ def draw_photon_sprite(path, n=128):
     Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), mode="RGB").save(path)
 
 
-def draw_bend_diagram(path):
-    """Side view of rays bending past the Sun, exaggerated and labelled as such."""
+def draw_planet(path, n=1024):
+    """The planet up close: the EPIC Earth at n px (the reel's textures are 256) with the same
+    display stretch, and a thin blue atmosphere glow past the limb. Transparent outside it."""
+    import numpy as np
+    sys.path.insert(0, LAYER_A)
+    import make_textures as T
+    disk = np.dstack(T.load_bands(n, color=True)[0])
+    # Match the reel's 256 px planet in overall brightness (finer pixels keep higher peaks,
+    # which shifts the normalization a little).
+    coarse = np.dstack(T.load_bands(256, color=True)[0])
+    binned = disk.reshape(256, n // 256, 256, n // 256, 3).mean(axis=(1, 3))
+    disk = disk * coarse.sum() / binned.sum()
+    # White-balance on the brightest clouds: the bands' raw scales tint them mint
+    p = np.percentile(disk[disk.sum(axis=2) > 0], 99.5, axis=0)
+    disk = np.clip(disk * (p.max() / p) * T.RGB_GAIN, 0, 1)
+
+    m = int(round(n / PLANET_FILL / 2)) * 2
+    o = (m - n) // 2
+    rgb = np.zeros((m, m, 3))
+    rgb[o:o + n, o:o + n] = disk
+    yy, xx = np.mgrid[:m, :m]
+    r = np.hypot(xx - (m - 1) / 2, yy - (m - 1) / 2) / (n / 2)       # in planet radii
+    sky = np.array([0.6, 0.76, 1.0])
+    # Inside EPIC's last few pixels, which fade into space and fringe red where the bands
+    # don't quite overlay
+    edge = 1 - 5 / (n / 2)
+    a_disk = np.clip((edge - r) * n / 2 + 0.5, 0, 1)
+    # A faint glow from the limb outward, gone by 4% of a radius so nothing past it is hidden
+    halo = 0.32 * np.exp(-np.maximum(r - edge, 0) / 0.012) * np.clip((1.04 - r) / 0.01, 0, 1)
+    # The disk over the glow, so the edge pixels blend into it instead of darkening
+    alpha = a_disk + halo * (1 - a_disk)
+    rgb = (rgb * a_disk[..., None] + sky * (halo * (1 - a_disk))[..., None]) / np.maximum(alpha, 1e-6)[..., None]
+    out = np.dstack([rgb, alpha]) * 255
+    Image.fromarray(out.round().astype(np.uint8), mode="RGBA").save(path)
+
+
+def draw_corona(path, n=1024):
+    """Glow past the Sun's limb, on black for additive blending: bright at the limb and fading
+    over about a solar radius. Dark over the disk itself, which the globe covers anyway."""
+    import numpy as np
+    yy, xx = np.mgrid[:n, :n]
+    r = np.hypot(xx - (n - 1) / 2, yy - (n - 1) / 2) / (n / 2) * CORONA_REACH   # solar radii
+    out = 0.75 * np.exp(-np.abs(r - 1) / 0.12) + 0.3 * np.exp(-np.abs(r - 1) / 0.7)
+    out *= np.clip((r - 0.94) / 0.06, 0, 1) * np.clip((CORONA_REACH - r) / 0.5, 0, 1)
+    rgb = out[..., None] * np.array([1.0, 0.82, 0.55])
+    Image.fromarray((np.clip(rgb, 0, 1) * 255).round().astype(np.uint8), mode="RGB").save(path)
+
+
+def bend_diagram(s):
+    """Side view of rays bending past the Sun, exaggerated and labelled as such: a 960 x 380
+    layout drawn at s pixels per layout unit."""
     w, h = 960, 380
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    img = Image.new("RGBA", (round(w * s), round(h * s)), (8, 10, 16, 190))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle((0, 0, w - 1, h - 1), radius=18, fill=(8, 10, 16, 190),
-                        outline=(120, 120, 130, 160), width=2)
-    font = ImageFont.load_default(size=20)
-    small = ImageFont.load_default(size=17)
+    S = lambda *v: tuple(a * s for a in v)
+    W = lambda px: max(1, round(px * s))
+    font = ImageFont.load_default(size=round(20 * s))
+    small = ImageFont.load_default(size=round(17 * s))
     axis_y, sun_x, sun_r = 196, 230, 46
-    d.line((30, axis_y, w - 30, axis_y), fill=(110, 110, 120, 200), width=1)
+    d.line(S(30, axis_y, w - 30, axis_y), fill=(110, 110, 120, 200), width=W(1))
     # Rays at impact parameter h (pixels) cross the axis at a distance growing as h^2.
     focus = lambda hh: sun_x + 330 * (hh / sun_r) ** 2
     for hh, hero in ((sun_r + 2, False), (sun_r * 1.09, True), (sun_r * 1.28, False), (sun_r * 1.5, False)):
         xf = focus(hh)
         color = (255, 244, 200, 255) if hero else (240, 215, 140, 150)
-        width = 3 if hero else 2
+        width = W(3 if hero else 2)
         for sign in (-1, 1):
             y0 = axis_y + sign * hh
-            d.line((30, y0, sun_x, y0), fill=color, width=width)
+            d.line(S(30, y0, sun_x, y0), fill=color, width=width)
             end_x = w - 30
             slope = (axis_y - y0) / (xf - sun_x)
-            d.line((sun_x, y0, end_x, y0 + slope * (end_x - sun_x)), fill=color, width=width)
+            d.line(S(sun_x, y0, end_x, y0 + slope * (end_x - sun_x)), fill=color, width=width)
     # Focal line from the limb-grazing focus outward, and the image plane.
     x548, x650 = focus(sun_r + 2), focus(sun_r * 1.09)
-    d.line((x548, axis_y, w - 30, axis_y), fill=(255, 168, 64, 255), width=5)
-    d.line((x650, axis_y - 70, x650, axis_y + 70), fill=(150, 230, 210, 255), width=3)
-    d.ellipse((sun_x - sun_r, axis_y - sun_r, sun_x + sun_r, axis_y + sun_r), fill=(255, 205, 100, 255))
-    d.text((sun_x, axis_y + sun_r + 32), "Sun", fill=(255, 225, 160), font=font, anchor="ma")
-    d.text((40, 22), "light from the planet", fill=(240, 225, 170), font=font)
-    d.text((x548 - 10, axis_y + 40), "focal line starts, 548 AU", fill=(255, 190, 120), font=small, anchor="ra")
-    d.text((x650 + 8, axis_y - 98), "image plane, 650 AU", fill=(170, 240, 220), font=small)
-    d.text((w // 2, h - 30), "Not to scale: the real bend is 1.6 arcseconds (0.00045 degrees)",
+    d.line(S(x548, axis_y, w - 30, axis_y), fill=(255, 168, 64, 255), width=W(5))
+    d.line(S(x650, axis_y - 70, x650, axis_y + 70), fill=(150, 230, 210, 255), width=W(3))
+    d.ellipse(S(sun_x - sun_r, axis_y - sun_r, sun_x + sun_r, axis_y + sun_r), fill=(255, 205, 100, 255))
+    d.text(S(sun_x, axis_y + sun_r + 32), "Sun", fill=(255, 225, 160), font=font, anchor="ma")
+    d.text(S(40, 22), "light from the planet", fill=(240, 225, 170), font=font)
+    d.text(S(x548 - 10, axis_y + 40), "focal line starts, 548 AU", fill=(255, 190, 120), font=small, anchor="ra")
+    d.text(S(x650 + 8, axis_y - 98), "image plane, 650 AU", fill=(170, 240, 220), font=small)
+    d.text(S(w // 2, h - 30), "Not to scale: the real bend is 1.6 arcseconds (0.00045 degrees)",
            fill=(200, 200, 205), font=small, anchor="ma")
-    img.save(path)
+    return img
+
+
+def draw_bend_diagram(path, ss=2):
+    """The overview overlay: the diagram in a square-cornered panel, joined by two lines from
+    its bottom corners to the top corners of a box around the Sun. Drawn at the rendered
+    frames' own pixel size, supersampled ss times."""
+    x0, x1, y0, y1 = overlay_rect()
+    w_px, h_px = (x1 - x0) * PX[0], (y1 - y0) * PX[1]
+    img = Image.new("RGBA", (round(w_px * ss), round(h_px * ss)), (0, 0, 0, 0))
+    at = lambda x, y: ((x - x0) * PX[0] * ss, (y1 - y) * PX[1] * ss)
+    left, top = at(PANEL_X[0], PANEL_TOP)
+    right, bottom = at(PANEL_X[1], panel_bottom())
+    img.alpha_composite(bend_diagram((right - left) / 960), (round(left), round(top)))
+    box_left, box_top = at(SUN_XY[0] - BOX[0], SUN_XY[1] + BOX[1])
+    box_right, box_bottom = at(SUN_XY[0] + BOX[0], SUN_XY[1] - BOX[1])
+    d = ImageDraw.Draw(img)
+    color, width = (165, 170, 182, 230), 2 * SSAA * ss          # 2 px in the encoded clip
+    for l, t, r, b in ((left, top, right, bottom), (box_left, box_top, box_right, box_bottom)):
+        # Strokes centered on the edges, so the lines meet the corners exactly
+        d.rectangle((l - width / 2, t - width / 2, r + width / 2, b + width / 2), outline=color, width=width)
+    d.line((left, bottom, box_left, box_top), fill=color, width=width)
+    d.line((right, bottom, box_right, box_top), fill=color, width=width)
+    # The texture's shape has to match its size in units; OpenSpace stretches it back to pixels.
+    w = round(w_px)
+    img.resize((w, round(w * (y1 - y0) / (x1 - x0))), Image.LANCZOS).save(path)

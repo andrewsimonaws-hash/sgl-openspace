@@ -236,7 +236,7 @@ local SunToFocal = {{
     EndNode = FocalStart.Identifier,
     Color = {{ 1.0, 0.66, 0.25 }},
     Opacity = 0.6,
-    LineWidth = 2.0
+    LineWidth = 3.0
   }},
   GUI = {{ Name = "Sun to focal line", Path = "/SGL" }}
 }}
@@ -307,7 +307,7 @@ for i = 1, #AxisOffsets - 1 do
       StartNode = axisNodes[i].Identifier,
       EndNode = axisNodes[i + 1].Identifier,
       Color = {{ 1.0, 0.66, 0.25 }},
-      LineWidth = 3.0
+      LineWidth = 4.5
     }},
     GUI = {{ Name = "Focal line segment " .. i, Path = "/SGL/Focal line" }}
   }}
@@ -404,6 +404,7 @@ local BioCaption = {{
   Text = "{max((v[1] for v in BIO_VIEWS), key=len)} (B)",
   CartesianPosition = {{ 0.0, -0.56, -2.0 }},
   Scale = 1.15,
+  FontSize = {intro.FONT_SIZE},
   FaceCamera = false,
   Enabled = false
 }}
@@ -525,7 +526,8 @@ local Trail{sc:02d} = {{
     EndTime = "{iso(end_s)}",
     SampleInterval = 600,
     EnableFade = false,
-    LineWidth = 1.5
+    LineWidth = 1.5,
+    Opacity = 0.8
   }},
   GUI = {{ Name = "Spacecraft {sc + 1} trail", Path = "/SGL/Formation" }}
 }}
@@ -558,6 +560,11 @@ end)
                    "frame": "SGL_ImagePlane",
                    "position": {"x": 970.0, "y": 300.0, "z": 3000.0},
                    "up": {"x": 0.0, "y": 1.0, "z": 0.0}, "yaw": 0.0},
+        # Planet orbits: thinner than OpenSpace's 10 px default, and a little transparent
+        "properties": [
+            {"type": "setPropertyValue", "name": "{planetTrail_solarSystem}.Renderable.Appearance.LineWidth", "value": "6.0"},
+            {"type": "setPropertyValue", "name": "{planetTrail_solarSystem}.Renderable.Opacity", "value": "0.8"},
+        ],
         "delta_times": [1.0, 60.0, 600.0, 3600.0, 21600.0, 86400.0],
         "time": {"type": "absolute", "value": iso(0), "is_paused": True},
         "meta": {"name": "SGL", "author": "Andrew Simon", "version": "1.0",
@@ -591,6 +598,7 @@ local Telescope = {{
   OcculterRadius = 1.02,
   CoronaStrength = 0.06,
   Eyepiece = true,
+  Resolution = 2048,
   -- Upper left, clear of the image plane, focal line and Sun; not turned toward the camera,
   -- which would foreshorten it into an ellipse this far off-axis
   CartesianPosition = {{ -1.05, 0.42, -2.0 }},
@@ -613,6 +621,7 @@ local Label = {{
   Text = labelText(1),
   CartesianPosition = {{ -1.05, -0.03, -2.0 }},
   Scale = 0.4,
+  FontSize = {intro.FONT_SIZE},
   FaceCamera = false
 }}
 
@@ -654,6 +663,8 @@ end)
         f.write(intro.asset_lua(b))
     intro.draw_bend_diagram(os.path.join(OUT, "textures", "intro_bend_diagram.png"))
     intro.draw_photon_sprite(os.path.join(OUT, "textures", "intro_photon.png"))
+    intro.draw_planet(os.path.join(OUT, "textures", "intro_planet.png"))
+    intro.draw_corona(os.path.join(OUT, "textures", "intro_corona.png"))
 
     telescope_profile = dict(profile)
     telescope_profile["assets"] = profile["assets"] + ["${USER_ASSETS}/sgl/sgl_telescope",

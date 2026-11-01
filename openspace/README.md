@@ -34,11 +34,12 @@ Press **B** to step through the biosignature maps, with a caption for each, and 
 
 | Node | What it shows |
 |---|---|
-| `SGL_IntroPlanet` | The planet at 30 pc in the target direction: a billboard of the EPIC Earth, Earth-sized |
+| `SGL_IntroPlanet` | The planet at 30 pc in the target direction: a billboard of the EPIC Earth at 1024 px, Earth-sized, white-balanced on its clouds, with a thin atmosphere glow past the limb |
 | `SGL_Photon` | The light pulse. `tools/make_intro.py` moves it and sizes it every frame. |
 | `SGL_RayLimb0`–`7`, `SGL_RayIn0`–`7`, `SGL_RayOut0`–`7` | Eight rays from the planet past the Sun at 1.09 solar radii, then on to the image plane. Ray 0 is the one followed. |
-| `SGL_IntroPlanetDot`, `SGL_IntroSunDot` | Markers that keep the planet and the Sun visible from parsecs away |
-| `SGL_IntroCaption`, `SGL_IntroClock`, `SGL_IntroDiagram`, name labels | Screen-space captions, the date and distance, the not-to-scale bending diagram, and names placed over the planet and the Sun each frame |
+| `SGL_IntroPlanetDot`, `SGL_IntroSunDot` | Markers that keep the planet and the Sun visible from parsecs away. The planet's marker fades out as its image grows past a few pixels. |
+| `SGL_IntroCorona` | A glow around the textured Sun for the close pass |
+| `SGL_IntroCaption`, `SGL_IntroClock`, `SGL_IntroDiagram`, name labels | Screen-space captions, the date and distance, the not-to-scale bending diagram (joined by two lines to a box around the Sun, which the overview holds still on screen), and names placed over the planet and the Sun each frame |
 
 `intro.py` holds the geometry and generates the asset, and `tools/make_intro.py` writes the recording. The recording ends on the flat reel's first keyframe and restores the reel's state (eyepiece, labels, Sun glare).
 
@@ -61,7 +62,18 @@ The profile opens paused at the mission start. The camera sits just behind the i
   - **Simulation time:** only the first entry sets it. After that it follows scripts, and playback queues a script on the frame it's reached but runs it on the next, so each frame's scripts go in a frame early.
 - **Moving anchors:** the camera is placed from its anchor's position before the scene updates, so it trails an anchor that moves each frame by one frame. The opening anchors to fixed nodes (the planet, the limb point, the image plane) and moves the light pulse by script.
 - **30 pc from the origin:** world positions in 32-bit floats are off by ~5×10¹⁰ m there. `RenderableLabel` and the point-cloud pulse didn't draw, so the names are screen-space text placed each frame and the pulse is a billboard plane. A scripted plane `Size` must be a table `{ w, h }`.
-- **The Sun up close:** in these profiles the Sun is drawn as glare only, and its textured globe (`Scene.Sun` with the `sun_texture` layer) is off. The opening swaps the glare for the globe within 3×10¹⁰ m of the limb.
+- **The Sun up close:** in these profiles the Sun is drawn as glare only, and its textured globe (`Scene.Sun` with the `sun_texture` layer) is off.
+  - **Texture loading:** a globe switched on mid-shot draws grey, then fills in tile by tile. The opening switches it on from the first frame, far too small to see, so the texture has loaded by the close pass.
+  - **Glare to globe:** the glare fades out between 10¹² and 2×10¹¹ m from the Sun, while it's still small. Faded closer in, it ballooned into a halo first.
+  - **SunStar:** the stars asset also draws the Sun as a star (`SunStar`) for views from outside the solar system. It swells into a halo on approach and only fades between 0.1 and 0.0075 pc, a flash at the opening's speed, so the opening fades it out between 10¹⁷ and 10¹⁶ m.
+  - **Corona:** a glow billboard at the Sun's center fades in. It faces the camera from inside the globe, so the globe hides the part over its disk and only the ring past the limb shows.
+- **Sharper frames:**
+  - **MSAA:** with `"msaa": 4` in the window config, OpenSpace's frame capture came out black. Instead the flat clip renders at 3840×2160 (`"res"` in the window config, independent of the window's size) and is scaled to 1080p when encoded.
+  - **Line widths:** these are in framebuffer pixels, so `export_frames.py --line-scale 2` doubles every line and trail for the run, and the `MinMaxSize` pixel clamp on labels too.
+  - **Text:** `ScreenSpaceText` draws at `FontSize` (15 by default) and then stretches to its `Scale`, so the captions set `FontSize = 60` to stay sharp.
+  - **Text boxes:** OpenSpace 0.22 draws `ScreenSpaceText` into an RGB texture with no alpha, so each caption sits on an opaque black box. It's invisible against space, but it shows over the Earth or the Sun. `install_module.py` patches the texture to RGBA. The caption and the clock then get a 40% `BackgroundColor` band, so white text stays legible over clouds and the Sun.
+  - **Config path:** `${CONFIG}` resolves to the source build's `config` folder.
+- **Trail widths:** a trail's width is `Renderable.Appearance.LineWidth`, and planet orbits default to 10 px. The profiles set them to 6 px at 0.8 opacity, and the spacecraft trails are 1.5 px at 0.8.
 - **Verified in the running app:**
   - The image plane sits 650.0000 AU from the Sun along the intended direction.
   - Looking down the focal line, the texture's orientation matches the sample coordinates.

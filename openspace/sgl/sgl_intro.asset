@@ -15,8 +15,9 @@ local Planet = {
   Transform = { Translation = { Type = "StaticTranslation", Position = { 0, 0, -9.2570327444741018e+17 } } },
   Renderable = {
     Type = "RenderablePlaneImageLocal",
-    Texture = asset.resource("textures/truth_rgba_rgb.png"),
-    Size = 6378100.0,
+    -- The EPIC Earth at 1024 px with a thin atmosphere glow past the limb
+    Texture = asset.resource("textures/intro_planet.png"),
+    Size = 7086777.777777778,
     Billboard = true,
     BlendMode = "Normal",
     Enabled = false
@@ -55,6 +56,7 @@ local function label(id, text)
     Text = text,
     CartesianPosition = { 0.0, 0.0, -2.0 },
     Scale = 0.018 * #text,
+    FontSize = 60,
     FaceCamera = false,
     Enabled = false
   }
@@ -85,6 +87,22 @@ local Photon = {
   BoundingSphere = 1.0,
   InteractionSphere = 1.0,
   GUI = { Name = "Light pulse", Path = "/SGL/Intro" }
+}
+
+-- A glow around the textured Sun for the close pass. It sits at the Sun's center facing the
+-- camera, so the globe hides the part over its disk and only the ring past the limb shows.
+local Corona = {
+  Identifier = "SGL_IntroCorona",
+  Parent = sun.SunCenter.Identifier,
+  Renderable = {
+    Type = "RenderablePlaneImageLocal",
+    Texture = asset.resource("textures/intro_corona.png"),
+    Size = 2782800000.0,
+    Billboard = true,
+    BlendMode = "Additive",
+    Enabled = false
+  },
+  GUI = { Name = "Sun glow (close pass)", Path = "/SGL/Intro" }
 }
 
 -- Rays: planet to the limb, limb to the image plane. Line nodes sit on the barycenter (see
@@ -128,8 +146,8 @@ for k, limb in ipairs(LimbNodes) do
         StartNode = leg[2],
         EndNode = leg[3],
         Color = hero and { 1.0, 0.95, 0.75 } or { 0.95, 0.85, 0.55 },
-        Opacity = hero and 1.0 or 0.55,
-        LineWidth = hero and 2.5 or 1.4,
+        Opacity = hero and 0.8 or 0.45,
+        LineWidth = hero and 2.0 or 1.4,
         Enabled = false
       },
       GUI = { Name = "Ray " .. (k - 1) .. " " .. leg[1], Path = "/SGL/Intro", Hidden = true }
@@ -144,6 +162,9 @@ local Caption = {
   Text = "The Sun's gravity bends light from a planet 30 parsecs away to a focus 550-1,000 AU beyond",
   CartesianPosition = { 0.0, -0.8, -2.0 },
   Scale = 1.45,
+  FontSize = 60,
+  -- A translucent band keeps the text legible over the Earth and the Sun
+  BackgroundColor = { 0.0, 0.0, 0.0, 0.4 },
   FaceCamera = false,
   Enabled = false
 }
@@ -155,6 +176,8 @@ local Clock = {
   Text = "                                                          ",
   CartesianPosition = { 0.0, 0.84, -2.0 },
   Scale = 0.85,
+  FontSize = 60,
+  BackgroundColor = { 0.0, 0.0, 0.0, 0.4 },
   FaceCamera = false,
   Enabled = false
 }
@@ -164,13 +187,14 @@ local Diagram = {
   Name = "How the Sun bends light (not to scale)",
   Type = "ScreenSpaceImageLocal",
   TexturePath = asset.resource("textures/intro_bend_diagram.png"),
-  CartesianPosition = { 0.0, 0.6, -2.0 },
-  Scale = 0.9,
+  -- The diagram with lines down to a box around the Sun, which the overview holds still
+  CartesianPosition = { 0.000000, 0.285000, -2.0 },
+  Scale = 0.910000,
   FaceCamera = false,
   Enabled = false
 }
 
-local nodes = { Planet, PlanetDot, SunDot, Photon }
+local nodes = { Planet, PlanetDot, SunDot, Photon, Corona }
 for _, n in ipairs(LimbNodes) do table.insert(nodes, n) end
 for _, n in ipairs(Rays) do table.insert(nodes, n) end
 local screens = { Caption, Clock, Diagram, PlanetLabel, SunLabel, DistanceLabel }

@@ -29,6 +29,18 @@
     },
     "yaw": 0.0
   },
+  "properties": [
+    {
+      "type": "setPropertyValue",
+      "name": "{planetTrail_solarSystem}.Renderable.Appearance.LineWidth",
+      "value": "6.0"
+    },
+    {
+      "type": "setPropertyValue",
+      "name": "{planetTrail_solarSystem}.Renderable.Opacity",
+      "value": "0.8"
+    }
+  ],
   "delta_times": [
     1.0,
     60.0,

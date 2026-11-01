@@ -59,7 +59,7 @@ local SunToFocal = {
     EndNode = FocalStart.Identifier,
     Color = { 1.0, 0.66, 0.25 },
     Opacity = 0.6,
-    LineWidth = 2.0
+    LineWidth = 3.0
   },
   GUI = { Name = "Sun to focal line", Path = "/SGL" }
 }
@@ -130,7 +130,7 @@ for i = 1, #AxisOffsets - 1 do
       StartNode = axisNodes[i].Identifier,
       EndNode = axisNodes[i + 1].Identifier,
       Color = { 1.0, 0.66, 0.25 },
-      LineWidth = 3.0
+      LineWidth = 4.5
     },
     GUI = { Name = "Focal line segment " .. i, Path = "/SGL/Focal line" }
   }
@@ -227,6 +227,7 @@ local BioCaption = {
   Text = "Vegetation (NDVI): green plants, tan desert, blue ocean, white cloud (B)",
   CartesianPosition = { 0.0, -0.56, -2.0 },
   Scale = 1.15,
+  FontSize = 60,
   FaceCamera = false,
   Enabled = false
 }

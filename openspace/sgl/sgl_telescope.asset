@@ -20,6 +20,7 @@ local Telescope = {
   OcculterRadius = 1.02,
   CoronaStrength = 0.06,
   Eyepiece = true,
+  Resolution = 2048,
   -- Upper left, clear of the image plane, focal line and Sun; not turned toward the camera,
   -- which would foreshorten it into an ellipse this far off-axis
   CartesianPosition = { -1.05, 0.42, -2.0 },
@@ -42,6 +43,7 @@ local Label = {
   Text = labelText(1),
   CartesianPosition = { -1.05, -0.03, -2.0 },
   Scale = 0.4,
+  FontSize = 60,
   FaceCamera = false
 }
 

@@ -30,17 +30,33 @@ from record_reel import FRAMING, LABEL, P, SUN_LABEL  # noqa: E402
 RECORDINGS = "C:/Users/andre/OpenSpace/v0.22.0/user/recordings"
 TEXTURES_MANIFEST = os.path.join(HERE, "..", "..", "layer_a", "out", "textures", "manifest.json")
 FPS = 30
-BEATS = {"overview": 6.5, "fly": 6.0, "travel": 10.0, "bend": 5.0, "converge": 6.5, "arrive": 4.0}
+BEATS = {"overview": 6.5, "fly": 9.0, "travel": 11.0, "bend": 7.5, "converge": 7.0, "arrive": 4.0}
 UP = np.array([0.0, 1.0, 0.0])
-V_SLOW = 1.5e8          # m per clip second while passing the Sun: half the speed of light
-U_SLOW = 3.75e8         # m either side of the limb covered at that speed
+U_SLOW = 3.75e8         # m either side of the limb covered at a steady speed
+V_SLOW = 2 * U_SLOW / BEATS["bend"]     # m per clip second there: a third of the speed of light
+FLY_NEAR = 5.0          # s of the flight spent closing from NEAR_DIST, as the planet grows from a dot
+NEAR_DIST = 1e10        # m from the planet
+DOT_FADE = (1.5, 5.0)   # planet radius in pixels over which its marker fades out
+GLARE = 0.65            # the Sun glare's own opacity (glare.asset)
+# Faded while the glare is still small, so it never balloons into a halo before it goes
+GLARE_FADE = (1e12, 2e11)       # m from the Sun: full glare beyond the first, none inside the second
+CORONA_FADE = (8e11, 1.5e11)    # the close-pass glow: none beyond the first, full inside the second
+OVERVIEW_FADE = 15              # frames over which the overview's diagram and labels fade out
+# OpenSpace's SunStar (the Sun as a star from outside the solar system) swells into a halo
+# and only fades between 0.1 and 0.0075 pc, a flash at this speed; fade it while it's small
+SUNSTAR_FADE = (1e17, 1e16)
 D_PLANET, D_SUN, D_IMAGE = 3.5e7, 2.5e9, 3.2e3      # closest camera distances on each leg
+OVERVIEW_DIST = 40 * I.PC       # camera to the midpoint between the planet and the Sun
 FOLLOW = 0.05           # camera distance as a fraction of the distance to the nearer end
 PHOTON_SIZE = 0.03      # light-pulse half-width as a fraction of the camera distance
 HOLD = 12               # frames held on the reel's first view at the end
-SUN_CLOSE = 3e10        # m from the limb within which the Sun is drawn as a globe, not glare
 REEL_START = datetime(2075, 1, 1, 6, 0, 0)            # UTC of the reel's first frame
 SP = "openspace.setPropertyValueSingle"
+GLARE_OPACITY = "Scene.SunGlare.Renderable.Opacity"
+CORONA_OPACITY = "Scene.SGL_IntroCorona.Renderable.Opacity"
+DOT_OPACITY = "Scene.SGL_IntroPlanetDot.Renderable.Opacity"
+SUNSTAR_OPACITY = "Scene.SunStar.Renderable.Opacity"
+PX_PER_RAD = I.OUTPUT[0] / I.SCREEN[0]   # clip pixels per unit of tan(angle)
 
 
 def unit(v):
@@ -98,19 +114,38 @@ def qslerp(a, b, t):
     return (math.sin((1 - t) * om) * a + math.sin(t * om) * b) / math.sin(om)
 
 
+def hold_on_screen(cam, target, xy, fwd):
+    """Forward direction, starting from fwd, that puts target at screen position xy with the
+    camera's up still toward UP (Newton's method on yaw and pitch)."""
+    def direction(a):
+        return np.array([math.cos(a[1]) * math.cos(a[0]), math.sin(a[1]), math.cos(a[1]) * math.sin(a[0])])
+
+    def miss(a):
+        return np.array(screen_xy(dict(quat=look_quat(direction(a)), cam=cam), target, 0.0)) - xy
+
+    f = unit(fwd)
+    a = np.array([math.atan2(f[2], f[0]), math.asin(f[1])])
+    for _ in range(20):
+        r = miss(a)
+        if np.abs(r).max() < 1e-12:
+            break
+        jac = np.column_stack([(miss(a + da) - r) / 1e-7 for da in np.eye(2) * 1e-7])
+        a = a - np.linalg.solve(jac, r)
+    return direction(a)
+
+
 def smooth_max(a, b, p=4):
     return (a ** p + b ** p) ** (1 / p)
 
 
-def log_leg(length, s0, u_end, duration, r0, r1, ramp_in, ramp_out):
-    """Distance along a leg at the end of each frame, steady in log space, eased at both ends.
+def fade(x, a, b):
+    """1 at x = a, 0 at x = b (either order), smooth in log x between."""
+    return 1 - smooth((math.log(x) - math.log(a)) / (math.log(b) - math.log(a)))
 
-    The log coordinate counts decades out from the start until halfway, then decades down
-    to the end, so leaving one end feels the same as arriving at the other. r0 and r1 are
-    the starting and ending rates in decades per second.
-    """
-    mid = math.log10(length / 2)
-    lam0, lam1 = math.log10(s0), 2 * mid - math.log10(u_end)
+
+def ramped(lam0, lam1, duration, r0, r1, ramp_in, ramp_out):
+    """lam0 to lam1 at a steady rate, eased in from r0 and out to r1 (per second) over the
+    ramps. Returns the value at the end of each frame."""
     a, b = ramp_in, ramp_out
     peak = (lam1 - lam0 - (r0 * a + r1 * b) / 2) / (duration - (a + b) / 2)
 
@@ -127,18 +162,38 @@ def log_leg(length, s0, u_end, duration, r0, r1, ramp_in, ramp_out):
         for j in range(sub):
             lam += rate((k + (j + 0.5) / sub) / FPS) / (FPS * sub)
         out.append(lam)
-    out = lam0 + (np.array(out) - lam0) * (lam1 - lam0) / (lam - lam0)   # land exactly on lam1
+    return lam0 + (np.array(out) - lam0) * (lam1 - lam0) / (lam - lam0)   # land exactly on lam1
+
+
+def log_leg(length, s0, u_end, duration, r0, r1, ramp_in, ramp_out):
+    """Distance along a leg at the end of each frame, steady in log space, eased at both ends.
+
+    The log coordinate counts decades out from the start until halfway, then decades down
+    to the end, so leaving one end feels the same as arriving at the other. r0 and r1 are
+    the starting and ending rates in decades per second.
+    """
+    mid = math.log10(length / 2)
+    out = ramped(math.log10(s0), 2 * mid - math.log10(u_end), duration, r0, r1, ramp_in, ramp_out)
     return np.where(out <= mid, 10 ** out, length - 10 ** (2 * mid - out))
 
 
+# unit, metres per unit, used from this many metres up, width of the whole part, decimals
+UNITS = (("light-years", I.LY, 0.1 * I.LY, 2, 2), ("AU", I.AU, 0.1 * I.AU, 5, 1),
+         ("km", 1e3, 1e4, 10, 0), ("m", 1.0, 0.0, 5, 0))
+
+
 def distance_text(m):
-    if m >= 0.1 * I.LY:
-        return f"{m / I.LY:,.2f} light-years"
-    if m >= 0.1 * I.AU:
-        return f"{m / I.AU:,.1f} AU"
-    if m >= 1e4:
-        return f"{m / 1e3:,.0f} km"
-    return f"{m:,.0f} m"
+    """The distance with its whole part right-aligned, so in the monospace clock the decimal
+    point and the unit hold still while the number counts."""
+    for unit, scale, above, whole, decimals in UNITS:
+        if m >= above:
+            w, _, f = f"{m / scale:,.{decimals}f}".partition(".")
+            return f"{w:>{whole}}" + (f".{f}" if decimals else "") + f" {unit}"
+
+
+def clock_text(et, et_arrive, fmt, rest):
+    """Date right-aligned (so the year holds still as month names change length), then the rest."""
+    return f"{date_text(et, et_arrive, fmt):>16}  -  {rest}"
 
 
 def date_text(et, et_arrive, fmt):
@@ -193,14 +248,17 @@ def build(reel_path):
 
     frames, marks = [], {}
 
-    # ---- Overview: the planet on the left, the Sun on the right, 30 pc apart ----
+    # ---- Overview: the planet on the left, the Sun held still in the diagram's box ----
     mid = planet / 2
-    dist_a, el = 27 * I.PC, math.radians(18)
+    dist_a, el = OVERVIEW_DIST, math.radians(18)
+    fwd = None
     for k in range(int(BEATS["overview"] * FPS)):
         az = math.radians(-8 + 6 * k / (BEATS["overview"] * FPS))
         cam = mid + dist_a * np.array([-math.cos(el) * math.cos(az), math.sin(el), math.cos(el) * math.sin(az)])
-        frames.append(dict(anchor="SGL_IntroPlanet", rel=cam - planet, cam=cam, quat=look_quat(mid - cam),
+        fwd = hold_on_screen(cam, np.zeros(3), np.array(I.SUN_XY), mid - cam if fwd is None else fwd)
+        frames.append(dict(anchor="SGL_IntroPlanet", rel=cam - planet, cam=cam, quat=look_quat(fwd),
                            et=et_emit))
+    planet_xy = np.array(screen_xy(frames[-1], planet, 0.0))    # where the overview leaves the planet
 
     # ---- Fly to the planet: log distance, swinging round behind it ----
     marks["fly"] = len(frames)
@@ -208,14 +266,21 @@ def build(reel_path):
     v0, v1 = frames[-1]["rel"], f1 * s_start + rig(D_PLANET, f1)
     look_end = start + f1 * 1.6 * D_PLANET
     n_fly = int(BEATS["fly"] * FPS)
+    # Log distance: fast across the parsecs, then a slow approach from NEAR_DIST that eases
+    # to a stop, so the planet has time to grow from a dot.
+    lam0, lam1, lam_near = (math.log10(x) for x in (np.linalg.norm(v0), np.linalg.norm(v1), NEAR_DIST))
+    r_near = 2 * (lam_near - lam1) / FLY_NEAR
+    lams = np.concatenate([ramped(lam0, lam_near, BEATS["fly"] - FLY_NEAR, 0.0, -r_near, 1.5, 1.0),
+                           ramped(lam_near, lam1, FLY_NEAR, -r_near, 0.0, 0.0, FLY_NEAR)])
     for k in range(1, n_fly + 1):
         t = k / n_fly
-        e = smooth(smooth(t))                                  # gentler at both ends
-        dist = math.exp((1 - e) * math.log(np.linalg.norm(v0)) + e * math.log(np.linalg.norm(v1)))
+        dist = 10 ** lams[k - 1]
         rel = dist * slerp(v0, v1, smooth(t))
         cam = planet + rel
         if t < 0.35:
-            fwd = slerp(mid - cam, planet - cam, smooth(t / 0.35))
+            # Turn so the planet glides from where the overview left it to the center, on
+            # screen the whole way (turning the view alone let it swing off the left edge)
+            fwd = hold_on_screen(cam, planet, planet_xy * (1 - smooth(t / 0.35)), fwd)
         elif t < 0.8:
             fwd = planet - cam
         else:
@@ -226,10 +291,10 @@ def build(reel_path):
     # ---- Travel: the light pulse crosses 30 pc to the Sun's limb ----
     marks["travel"] = len(frames)
     r_slow = V_SLOW / (U_SLOW * math.log(10))
-    for s in log_leg(len1, s_start, U_SLOW, BEATS["travel"], 0.0, r_slow, 1.2, 2.5):
+    for s in log_leg(len1, s_start, U_SLOW, BEATS["travel"], 0.0, r_slow, 2.2, 2.5):
         d = smooth_max(D_PLANET if s < len1 / 2 else D_SUN, FOLLOW * min(s, len1 - s))
         et = et_emit + s / I.C
-        fr = follow(1, s, d, f1, et, f"{date_text(et, et_arrive, '%B %Y')}  -  {distance_text(s)} from the planet")
+        fr = follow(1, s, d, f1, et, clock_text(et, et_arrive, "%B %Y", f"{distance_text(s):>17} from the planet"))
         fr["to_sun"] = len1 - s
         frames.append(fr)
 
@@ -241,16 +306,16 @@ def build(reel_path):
         f = slerp(f1, f2, smooth(0.5 + x / (2 * U_SLOW)))
         et = et_limb + x / I.C
         swing = math.sin(math.pi * k / n_bend) ** 2
-        frames.append(follow(2, x, D_SUN, f, et, f"{date_text(et, et_arrive, '%d %B %Y')}  -  passing the Sun",
+        frames.append(follow(2, x, D_SUN, f, et, clock_text(et, et_arrive, "%d %B %Y", "passing the Sun"),
                              swing=swing))
 
     # ---- Converge: from the limb to the image plane, 650 AU and 3.75 days later ----
     marks["converge"] = len(frames)
-    for s in log_leg(len2, U_SLOW, 2 * D_IMAGE, BEATS["converge"], r_slow, 0.0, 1.5, 2.2):
+    for s in log_leg(len2, U_SLOW, 2 * D_IMAGE, BEATS["converge"], r_slow, 0.0, 2.0, 2.2):
         d = smooth_max(D_SUN if s < len2 / 2 else D_IMAGE, FOLLOW * min(s, len2 - s))
         et = et_limb + s / I.C
         fr = follow(2, s, d, f2, et,
-                    f"{date_text(et, et_arrive, '%d %B %Y')}  -  {distance_text(len2 - s)} to the image plane")
+                    clock_text(et, et_arrive, "%d %B %Y", f"{distance_text(len2 - s):>13} to the image plane"))
         fr["past_limb"] = s
         frames.append(fr)
 
@@ -272,7 +337,7 @@ def build(reel_path):
         frames.append(dict(anchor="SGL_ImagePlane", rel=rel, cam=image + rel, quat=q,
                            et=et_arrive - (1 - tp) * np.linalg.norm(image - p0) / I.C,
                            photon=p0 + (image - p0) * tp, d=last["d"],
-                           clock=f"{date_text(et_arrive, et_arrive, '%d %B %Y')}  -  at the image plane"))
+                           clock=clock_text(et_arrive, et_arrive, "%d %B %Y", "at the image plane")))
     frames[-1].update(rel=reel_pos, cam=image + reel_pos, quat=reel_quat, et=et_arrive)
     # Hold on the reel's first view while the eyepiece and labels come back (playback drops
     # the last frame or two, and scripts land a frame late).
@@ -298,6 +363,7 @@ def events_for(frames, marks):
                                                for n in ("PlanetLabel", "SunLabel", "DistanceLabel"))
     photon, planet_img = "Scene.SGL_Photon.Renderable.Enabled", "Scene.SGL_IntroPlanet.Renderable.Enabled"
     sun_globe, sun_glare = "Scene.Sun.Renderable.Enabled", "Scene.SunGlare.Renderable.Enabled"
+    corona = "Scene.SGL_IntroCorona.Renderable.Enabled"
     cap, clock, diagram = (f"ScreenSpace.SGL_Intro{n}.Enabled" for n in ("Caption", "Clock", "Diagram"))
     reel_ui = [f"{P}Enabled", f"{LABEL}Enabled", f"{SUN_LABEL}Renderable.Enabled",
                "Scene.SGL_SunMarker.Renderable.Enabled"]
@@ -307,29 +373,32 @@ def events_for(frames, marks):
     def at(k, *scripts):
         ev.setdefault(k, []).extend(scripts)
 
+    # The Sun's globe is on from the start, far too small to see, so its texture has loaded
+    # by the close pass (switched on there, it showed grey for a moment).
     at(0, "openspace.time.setPause(true)",
-       *[enable(u, False) for u in reel_ui + ["ScreenSpace.SGL_BioCaption.Enabled", photon, planet_img, clock]],
-       *[enable(u, True) for u in rays + [planet_dot, sun_dot, planet_label, sun_label, distance_label, cap, diagram]],
+       *[enable(u, False) for u in reel_ui + ["ScreenSpace.SGL_BioCaption.Enabled", photon, planet_img, clock,
+                                              corona]],
+       *[enable(u, True) for u in rays + [planet_dot, sun_dot, planet_label, sun_label, distance_label, cap, diagram,
+                                          sun_globe, sun_glare]],
+       f"{SP}('{GLARE_OPACITY}', {GLARE})", f"{SP}('{DOT_OPACITY}', 1.0)", f"{SP}('{SUNSTAR_OPACITY}', 1.0)",
+       *[f"{SP}('ScreenSpace.SGL_Intro{n}.Opacity', 1.0)" for n in ("Diagram", "SunLabel", "DistanceLabel")],
        caption("overview"))
 
     # Fly: from the overview markers to the planet itself as the camera closes in.
     k0 = marks["fly"]
-    at(k0, enable(diagram, False), enable(planet_img, True))
-    at(k0 + 15, caption("planet"))
-    for name, uris, limit in (("far", [sun_label, distance_label], 3 * I.PC),
-                              ("label", [planet_label], 0.05 * I.PC), ("dot", [planet_dot], 3e8)):
+    # write() fades the overview's diagram, Sun name and distance out over the first frames
+    at(k0, enable(planet_img, True))
+    at(k0 + OVERVIEW_FADE, caption("planet"), *[enable(u, False) for u in (diagram, sun_label, distance_label)])
+    for name, uris, limit in (("label", [planet_label], 0.05 * I.PC), ("dot", [planet_dot], 3e8)):
         k = next(i for i in range(k0, marks["travel"]) if frames[i]["dist"] < limit)
         at(k, *[enable(u, False) for u in uris])
 
     k = marks["travel"]
-    at(k, enable(photon, True), enable(clock, True), enable(sun_label, True), caption("travel"))
+    # Near the Sun, write() fades its glare out and the close-pass glow in, and back again.
+    at(k, enable(photon, True), enable(clock, True), enable(sun_label, True), enable(corona, True), caption("travel"),
+       f"{SP}('ScreenSpace.SGL_IntroSunLabel.Opacity', 1.0)")
     k = next(i for i in range(k, marks["bend"]) if frames[i]["to_sun"] < 2e12)
     at(k, enable(sun_dot, False), enable(sun_label, False))
-    # Close to the Sun, swap its glare for the textured globe, and back again on the way out.
-    k = next(i for i in range(k, marks["bend"]) if frames[i]["to_sun"] < SUN_CLOSE)
-    at(k, enable(sun_globe, True), enable(sun_glare, False))
-    k = next(i for i in range(marks["converge"], marks["arrive"]) if frames[i]["past_limb"] > SUN_CLOSE)
-    at(k, enable(sun_glare, True))
     at(marks["bend"], caption("bend"))
     at(marks["converge"], caption("converge"))
     at(marks["arrive"], caption("image"))
@@ -340,7 +409,8 @@ def events_for(frames, marks):
     sun = f["sun_label"]
     vec = lambda v: "{ " + ", ".join(str(x) for x in v) + " }"
     at(marks["hold"],
-       *[enable(u, False) for u in rays + [cap, clock, photon, sun_globe]], enable(sun_glare, True),
+       *[enable(u, False) for u in rays + [cap, clock, photon, sun_globe, corona]], enable(sun_glare, True),
+       f"{SP}('{GLARE_OPACITY}', {GLARE})", f"{SP}('{SUNSTAR_OPACITY}', 1.0)",
        f"{SP}('{P}PlanetSize', 1)", f"{SP}('{LABEL}Text', 'Telescope: planet x56,600 (M) ')",
        f"{SP}('{P}Scale', {f['scale']})", f"{SP}('{P}CartesianPosition', {vec(f['eyepiece'])})",
        f"{SP}('{LABEL}CartesianPosition', {vec(f['label'])})", f"{SP}('{LABEL}Scale', {f['label_scale']})",
@@ -348,7 +418,8 @@ def events_for(frames, marks):
        f"{SP}('{SUN_LABEL}Renderable.OrientationOption', {sun['orient']})",
        f"{SP}('{SUN_LABEL}Translation.Position', {vec(sun['offset'])})",
        f"{SP}('{SUN_LABEL}Renderable.Size', {sun['size']})",
-       f"{SP}('{SUN_LABEL}Renderable.MinMaxSize', {vec(sun['minmax'])})",
+       # in pixels, so scaled for the supersampled frames
+       f"{SP}('{SUN_LABEL}Renderable.MinMaxSize', {vec([v * I.SSAA for v in sun['minmax']])})",
        *[enable(u, True) for u in reel_ui])
     return ev
 
@@ -362,28 +433,54 @@ def screen_xy(frame, target, lift):
 
 
 def write(path, frames, marks, events, info):
-    labels = {"PlanetLabel": (info["planet"], 0.07), "SunLabel": (np.zeros(3), 0.07),
-              "DistanceLabel": (info["planet"] / 2, -0.08)}
+    # (target, lift until the trip, lift on the trip); the Sun's name sits under its box at first
+    labels = {"PlanetLabel": (info["planet"], 0.07, 0.07), "SunLabel": (np.zeros(3), -I.BOX[1] - 0.07, 0.07),
+              "DistanceLabel": (info["planet"] / 2, -0.08, -0.08)}
     entries = []          # (timestamp, order, line); playback needs them in time order
     clock = None
+    # Every clock line starts in the same column (the longest one centered), so the year
+    # never moves; the fields inside keep the decimal point and the unit still too
+    margin = (I.CLOCK_WIDTH - max(len(fr["clock"]) for fr in frames if fr.get("clock"))) // 2
+    shown = {}            # opacities last set, so each is sent only when it changes
+
+    def opacity(uri, value):
+        value = round(value, 3)
+        if shown.get(uri) != value:
+            shown[uri] = value
+            return [f"{SP}('{uri}', {value})"]
+        return []
+
     for k, fr in enumerate(frames):
         ts, et = k / FPS, float(fr["et"])
         # Playback queues a script on the frame it's reached and runs it on the next, so
         # each frame's scripts go in a frame early (and half a frame more, for rounding).
         sts = max(0.0, (k - 1.5) / FPS)
         scripts = [f"openspace.time.setTime({et!r})"] + events.get(k, [])
+        if marks["fly"] <= k < marks["fly"] + OVERVIEW_FADE:
+            for name in ("Diagram", "SunLabel", "DistanceLabel"):
+                scripts += opacity(f"ScreenSpace.SGL_Intro{name}.Opacity",
+                                   1 - smooth((k - marks["fly"] + 1) / OVERVIEW_FADE))
+        if marks["fly"] <= k < marks["travel"]:
+            # The planet's marker gives way to its image as the image grows past a few pixels
+            r_px = PX_PER_RAD * I.R_EARTH / fr["dist"]
+            scripts += opacity(DOT_OPACITY, fade(r_px, *DOT_FADE))
+        if marks["travel"] <= k < marks["hold"]:
+            to_sun = float(np.linalg.norm(fr["cam"]))
+            scripts += opacity(GLARE_OPACITY, GLARE * fade(to_sun, *GLARE_FADE))
+            scripts += opacity(CORONA_OPACITY, 1 - fade(to_sun, *CORONA_FADE))
+            scripts += opacity(SUNSTAR_OPACITY, fade(to_sun, *SUNSTAR_FADE))
         if fr.get("photon") is not None:
             scripts.append(f"{SP}('Scene.SGL_Photon.Translation.Position', {I.lua_vec(fr['photon'])})")
             size = PHOTON_SIZE * fr["d"]
             scripts.append(f"{SP}('Scene.SGL_Photon.Renderable.Size', {{ {size:.6g}, {size:.6g} }})")
         if k < marks["bend"]:
-            for name, (target, lift) in labels.items():
-                xy = screen_xy(fr, target, lift) or (0.0, 9.0)
+            for name, (target, lift, lift_trip) in labels.items():
+                xy = screen_xy(fr, target, lift if k < marks["travel"] else lift_trip) or (0.0, 9.0)
                 scripts.append(f"{SP}('ScreenSpace.SGL_Intro{name}.CartesianPosition', "
                                f"{{ {xy[0]:.5f}, {xy[1]:.5f}, -2.0 }})")
         if fr.get("clock") and fr["clock"] != clock:
             clock = fr["clock"]
-            scripts.append(f"{SP}('ScreenSpace.SGL_IntroClock.Text', '{I.pad(clock, I.CLOCK_WIDTH)}')")
+            scripts.append(f"{SP}('ScreenSpace.SGL_IntroClock.Text', '{(' ' * margin + clock).ljust(I.CLOCK_WIDTH)}')")
         entries += [(sts, len(entries), f"script {sts!r} {et!r} 1 {s}") for s in scripts]
         anchor = fr["anchor"]
         rel = [float(v) for v in fr["rel"]]
