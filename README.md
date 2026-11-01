@@ -10,7 +10,7 @@ The Sun bends light from a distant planet into a focus that starts 548 AU away. 
 
 It grew out of my senior thesis on autonomy for this mission. Every physical number on screen is checked against published optics or against a second, independent method.
 
-**Clips:** [flat, 21 s](media/sgl_telescope_flat.mp4) · [dome master (fisheye), 22 s](media/sgl_telescope_dome.mp4)
+**Clips:** [flat, 20 s](media/sgl_telescope_flat.mp4) · [dome master (fisheye), 21 s](media/sgl_telescope_dome.mp4)
 
 ## What's on screen
 
