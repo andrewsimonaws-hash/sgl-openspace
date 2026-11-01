@@ -10,17 +10,17 @@ The Sun bends light from a distant planet into a focus that starts 548 AU away. 
 
 It grew out of my senior thesis on autonomy for this mission. Every physical number on screen is checked against published optics or against a second, independent method.
 
-**Clips:** [flat with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) · [dome master (fisheye, 1024 px), 22 s](media/sgl_telescope_dome.mp4)
+**Clips:** [flat with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) · [dome master with the opening (fisheye, 1024 px), 67 s](media/sgl_telescope_dome.mp4)
 
 ## The opening
 
-The flat clip starts by following the planet's light all the way to the image (about 45 s):
+Both clips start by following the planet's light all the way to the image (about 45 s):
 1. **Overview:** the planet and the Sun, 30 parsecs apart. A side diagram of how the Sun bends light is boxed out from the Sun.
 2. **The planet:** a flight out to an Earth twin 98 light-years away, drawn with the real Earth from DSCOVR EPIC at 1024 px.
 3. **The trip:** a pulse of light leaves the planet and the camera rides with it. The time-lapse is logarithmic, so the distance shrinks by a steady factor each second, and a clock runs from February 1977 to December 2074.
 4. **The bend:** the pulse skims 0.09 solar radii above the Sun's surface, shown at a third of the speed of light.
 5. **Convergence:** rays from around the whole limb narrow into a cone 1.5 million km wide and meet 650 AU out, 3.75 days later.
-6. **The image:** the camera swings round to the reel's view of the image plane.
+6. **The image:** the camera swings round to the reel's view of the image plane. On the dome, that view looks across the focal axis: the image plane on the left of the circle, the Sun 650 AU away on the right.
 
 The rays are true geometry. They pass the Sun at the Einstein radius for 650 AU (1.09 solar radii) and meet on the axis there. The bend itself is 1.6″, too small to see, so only the overview diagram exaggerates it, and it says so. [`openspace/tools/make_intro.py`](openspace/tools/make_intro.py) writes every frame of the camera path, so playback is exact.
 
@@ -118,7 +118,7 @@ Requires Windows, Visual Studio 2026 (MSVC 19.50), CMake 4.0 or newer, OpenSpace
    bin/RelWithDebInfo/OpenSpace.exe --profile sgl_telescope --bypassLauncher
    ```
 6. **Reel:** with OpenSpace running, use `openspace/tools/record_reel.py [--dome]`, then `export_frames.py <recording> 30`, then `encode_clip.py out.mp4`.
-7. **Opening:** `make_intro.py` writes the opening's recording. Export it straight before the flat reel, in the same session, then join the two with `encode_clip.py out.mp4 --runs 2`.
+7. **Opening:** `make_intro.py [--dome]` writes the opening's recording, ending on the reel's first view. Export it straight before the reel, in the same session, then join the two with `encode_clip.py out.mp4 --runs 2`. On the dome the overview is drawn larger and each caption is split over two lines.
 8. **Sharper frames:** the flat clip is rendered at 3840×2160 (a window config with `"res": { "x": 3840, "y": 2160 }`) and exported with `--line-scale 2`, since line widths are in framebuffer pixels. `encode_clip.py --width 1920` then scales it to 1080p, which antialiases every line, edge and letter. The dome master is rendered the same way at 2048×2048 (fisheye `"quality": "2k"`) and encoded with `--width 1024`.
 
 The scripts assume my local paths in a few places (`OPENSPACE_ASSETS` in `build_asset.py`, `DST` in `install_module.py`, the recordings folder). Change them for your machine.

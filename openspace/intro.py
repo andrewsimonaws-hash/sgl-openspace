@@ -87,6 +87,19 @@ def caption_width():
     return max(len(t) for t in CAPTIONS.values())
 
 
+def dome_caption_lines(text):
+    """A caption split into two lines of about equal length, for the dome."""
+    words = text.split()
+    # never between a number and its unit ("1.3 km")
+    splits = [(" ".join(words[:i]), " ".join(words[i:])) for i in range(1, len(words))
+              if not any(c.isdigit() for c in words[i - 1]) or any(c.isdigit() for c in words[i])]
+    return min(splits, key=lambda ab: max(len(ab[0]), len(ab[1])))
+
+
+def dome_caption_width():
+    return max(len(line) for t in CAPTIONS.values() for line in dome_caption_lines(t))
+
+
 def lua_vec(v):
     return "{ " + ", ".join(f"{float(a):.17g}" for a in v) + " }"
 
@@ -290,7 +303,26 @@ local Diagram = {{
 local nodes = {{ Planet, PlanetDot, SunDot, Photon, Corona }}
 for _, n in ipairs(LimbNodes) do table.insert(nodes, n) end
 for _, n in ipairs(Rays) do table.insert(nodes, n) end
-local screens = {{ Caption, Clock, Diagram, PlanetLabel, SunLabel, DistanceLabel }}
+-- On the dome a full-width caption would be too small to read, so it's split over two
+-- lines, each its own text sized to the longest line (make_intro.py --dome uses these).
+local function domeCaption(id)
+  return {{
+    Identifier = id,
+    Name = "Intro caption (dome)",
+    Type = "ScreenSpaceText",
+    Text = "{pad(max((line for t in CAPTIONS.values() for line in dome_caption_lines(t)), key=len), dome_caption_width())}",
+    CartesianPosition = {{ 0.0, -2.2, -2.0 }},
+    Scale = 1.0,
+    FontSize = {FONT_SIZE},
+    BackgroundColor = {{ 0.0, 0.0, 0.0, {TEXT_BAND} }},
+    FaceCamera = true,
+    Enabled = false
+  }}
+end
+local DomeCaption1 = domeCaption("SGL_IntroDomeCaption1")
+local DomeCaption2 = domeCaption("SGL_IntroDomeCaption2")
+
+local screens = {{ Caption, Clock, Diagram, PlanetLabel, SunLabel, DistanceLabel, DomeCaption1, DomeCaption2 }}
 
 asset.onInitialize(function()
   for _, n in ipairs(nodes) do openspace.addSceneGraphNode(n) end

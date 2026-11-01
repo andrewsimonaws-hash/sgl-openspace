@@ -46,7 +46,17 @@ OVERVIEW_FADE = 15              # frames over which the overview's diagram and l
 # and only fades between 0.1 and 0.0075 pc, a flash at this speed; fade it while it's small
 SUNSTAR_FADE = (1e17, 1e16)
 D_PLANET, D_SUN, D_IMAGE = 3.5e7, 2.5e9, 3.2e3      # closest camera distances on each leg
-OVERVIEW_DIST = 40 * I.PC       # camera to the midpoint between the planet and the Sun
+# How the opening sits on screen. Screen-space positions are in the camera's view space, where
+# z = -2 is the flat screen. On the dome master the circle's center is straight ahead and a
+# flat-sized overview would fill only its middle, so the overview is drawn `scale` times
+# larger, and the clock and a two-line caption sit above and below it, turned to the camera.
+LAYOUT = {
+    "flat": dict(scale=1.0, overview_dist=40 * I.PC,      # camera to the planet-Sun midpoint
+                 px_per_rad=I.OUTPUT[0] / I.SCREEN[0]),   # clip pixels per unit of tan(angle)
+    "dome": dict(scale=1.6, overview_dist=27 * I.PC, px_per_rad=1024 / math.pi,
+                 clock=((0.0, 2.86, -2.0), 2.93),          # (position, scale)
+                 caption=(((0.0, -2.2, -2.0), 2.28), ((0.0, -2.75, -2.0), 2.61))),
+}
 FOLLOW = 0.05           # camera distance as a fraction of the distance to the nearer end
 PHOTON_SIZE = 0.03      # light-pulse half-width as a fraction of the camera distance
 HOLD = 12               # frames held on the reel's first view at the end
@@ -56,7 +66,6 @@ GLARE_OPACITY = "Scene.SunGlare.Renderable.Opacity"
 CORONA_OPACITY = "Scene.SGL_IntroCorona.Renderable.Opacity"
 DOT_OPACITY = "Scene.SGL_IntroPlanetDot.Renderable.Opacity"
 SUNSTAR_OPACITY = "Scene.SunStar.Renderable.Opacity"
-PX_PER_RAD = I.OUTPUT[0] / I.SCREEN[0]   # clip pixels per unit of tan(angle)
 
 
 def unit(v):
@@ -200,7 +209,7 @@ def date_text(et, et_arrive, fmt):
     return (REEL_START - timedelta(seconds=et_arrive - et)).strftime(fmt).lstrip("0")
 
 
-def build(reel_path):
+def build(reel_path, layout):
     # The reel's first camera keyframe: where and when the intro has to end.
     with open(reel_path, encoding="utf-8") as fh:
         first = next(ln.split() for ln in fh if ln.startswith("camera"))
@@ -250,12 +259,13 @@ def build(reel_path):
 
     # ---- Overview: the planet on the left, the Sun held still in the diagram's box ----
     mid = planet / 2
-    dist_a, el = OVERVIEW_DIST, math.radians(18)
+    dist_a, el = layout["overview_dist"], math.radians(18)
+    sun_xy = np.array(I.SUN_XY) * layout["scale"]
     fwd = None
     for k in range(int(BEATS["overview"] * FPS)):
         az = math.radians(-8 + 6 * k / (BEATS["overview"] * FPS))
         cam = mid + dist_a * np.array([-math.cos(el) * math.cos(az), math.sin(el), math.cos(el) * math.sin(az)])
-        fwd = hold_on_screen(cam, np.zeros(3), np.array(I.SUN_XY), mid - cam if fwd is None else fwd)
+        fwd = hold_on_screen(cam, np.zeros(3), sun_xy, mid - cam if fwd is None else fwd)
         frames.append(dict(anchor="SGL_IntroPlanet", rel=cam - planet, cam=cam, quat=look_quat(fwd),
                            et=et_emit))
     planet_xy = np.array(screen_xy(frames[-1], planet, 0.0))    # where the overview leaves the planet
@@ -347,15 +357,38 @@ def build(reel_path):
     return frames, marks, dict(planet=planet, image=image, et_emit=et_emit, et_arrive=et_arrive)
 
 
-def events_for(frames, marks):
+def events_for(frames, marks, mode):
     """Scripts to run on given frames: what is shown, captions, and the hand-over to the reel."""
-    width = I.caption_width()
+    layout = LAYOUT[mode]
+    vec = lambda v: "{ " + ", ".join(str(x) for x in v) + " }"
 
     def enable(uri, on):
         return f"{SP}('{uri}', {'true' if on else 'false'})"
 
     def caption(key):
-        return f'{SP}("ScreenSpace.SGL_IntroCaption.Text", "{I.pad(I.CAPTIONS[key], width)}")'
+        if mode == "flat":
+            return [f'{SP}("ScreenSpace.SGL_IntroCaption.Text", "{I.pad(I.CAPTIONS[key], I.caption_width())}")']
+        return [f'{SP}("ScreenSpace.SGL_IntroDomeCaption{i + 1}.Text", "{I.pad(line, I.dome_caption_width())}")'
+                for i, line in enumerate(I.dome_caption_lines(I.CAPTIONS[key]))]
+
+    def dome_layout():
+        """Screen-space placement on the dome; the flat layout is the asset's own."""
+        k = layout["scale"]
+        x0, x1, y0, y1 = I.overlay_rect()
+        center = ((x0 + x1) / 2 * k, (y0 + y1) / 2 * k, -2.0)
+        out = [f"{SP}('ScreenSpace.SGL_IntroDiagram.CartesianPosition', {vec(center)})",
+               f"{SP}('ScreenSpace.SGL_IntroDiagram.Scale', {(x1 - x0) / 2 * k})"]
+        for n, key in (("PlanetLabel", "planet"), ("SunLabel", "sun"), ("DistanceLabel", "distance")):
+            out += [f"{SP}('ScreenSpace.SGL_Intro{n}.Scale', {0.018 * len(I.LABELS[key]) * k})",
+                    f"{SP}('ScreenSpace.SGL_Intro{n}.FaceCamera', true)"]
+        pos, scale = layout["clock"]
+        out += [f"{SP}('ScreenSpace.SGL_IntroClock.CartesianPosition', {vec(pos)})",
+                f"{SP}('ScreenSpace.SGL_IntroClock.Scale', {scale})",
+                f"{SP}('ScreenSpace.SGL_IntroClock.FaceCamera', true)"]
+        for i, (pos, scale) in enumerate(layout["caption"]):
+            out += [f"{SP}('ScreenSpace.SGL_IntroDomeCaption{i + 1}.CartesianPosition', {vec(pos)})",
+                    f"{SP}('ScreenSpace.SGL_IntroDomeCaption{i + 1}.Scale', {scale})"]
+        return out
 
     rays = [f"Scene.SGL_Ray{leg}{k}.Renderable.Enabled" for k in range(I.N_RAYS) for leg in ("In", "Out")]
     planet_dot, sun_dot = (f"Scene.SGL_Intro{n}.Renderable.Enabled" for n in ("PlanetDot", "SunDot"))
@@ -364,7 +397,9 @@ def events_for(frames, marks):
     photon, planet_img = "Scene.SGL_Photon.Renderable.Enabled", "Scene.SGL_IntroPlanet.Renderable.Enabled"
     sun_globe, sun_glare = "Scene.Sun.Renderable.Enabled", "Scene.SunGlare.Renderable.Enabled"
     corona = "Scene.SGL_IntroCorona.Renderable.Enabled"
-    cap, clock, diagram = (f"ScreenSpace.SGL_Intro{n}.Enabled" for n in ("Caption", "Clock", "Diagram"))
+    clock, diagram = (f"ScreenSpace.SGL_Intro{n}.Enabled" for n in ("Clock", "Diagram"))
+    caps = (["ScreenSpace.SGL_IntroCaption.Enabled"] if mode == "flat" else
+            [f"ScreenSpace.SGL_IntroDomeCaption{i}.Enabled" for i in (1, 2)])
     reel_ui = [f"{P}Enabled", f"{LABEL}Enabled", f"{SUN_LABEL}Renderable.Enabled",
                "Scene.SGL_SunMarker.Renderable.Enabled"]
 
@@ -378,43 +413,43 @@ def events_for(frames, marks):
     at(0, "openspace.time.setPause(true)",
        *[enable(u, False) for u in reel_ui + ["ScreenSpace.SGL_BioCaption.Enabled", photon, planet_img, clock,
                                               corona]],
-       *[enable(u, True) for u in rays + [planet_dot, sun_dot, planet_label, sun_label, distance_label, cap, diagram,
-                                          sun_globe, sun_glare]],
+       *[enable(u, True) for u in rays + caps + [planet_dot, sun_dot, planet_label, sun_label, distance_label,
+                                                 diagram, sun_globe, sun_glare]],
        f"{SP}('{GLARE_OPACITY}', {GLARE})", f"{SP}('{DOT_OPACITY}', 1.0)", f"{SP}('{SUNSTAR_OPACITY}', 1.0)",
        *[f"{SP}('ScreenSpace.SGL_Intro{n}.Opacity', 1.0)" for n in ("Diagram", "SunLabel", "DistanceLabel")],
-       caption("overview"))
+       *(dome_layout() if mode == "dome" else []), *caption("overview"))
 
     # Fly: from the overview markers to the planet itself as the camera closes in.
     k0 = marks["fly"]
     # write() fades the overview's diagram, Sun name and distance out over the first frames
     at(k0, enable(planet_img, True))
-    at(k0 + OVERVIEW_FADE, caption("planet"), *[enable(u, False) for u in (diagram, sun_label, distance_label)])
+    at(k0 + OVERVIEW_FADE, *caption("planet"), *[enable(u, False) for u in (diagram, sun_label, distance_label)])
     for name, uris, limit in (("label", [planet_label], 0.05 * I.PC), ("dot", [planet_dot], 3e8)):
         k = next(i for i in range(k0, marks["travel"]) if frames[i]["dist"] < limit)
         at(k, *[enable(u, False) for u in uris])
 
     k = marks["travel"]
     # Near the Sun, write() fades its glare out and the close-pass glow in, and back again.
-    at(k, enable(photon, True), enable(clock, True), enable(sun_label, True), enable(corona, True), caption("travel"),
+    at(k, enable(photon, True), enable(clock, True), enable(sun_label, True), enable(corona, True), *caption("travel"),
        f"{SP}('ScreenSpace.SGL_IntroSunLabel.Opacity', 1.0)")
     k = next(i for i in range(k, marks["bend"]) if frames[i]["to_sun"] < 2e12)
     at(k, enable(sun_dot, False), enable(sun_label, False))
-    at(marks["bend"], caption("bend"))
-    at(marks["converge"], caption("converge"))
-    at(marks["arrive"], caption("image"))
+    at(marks["bend"], *caption("bend"))
+    at(marks["converge"], *caption("converge"))
+    at(marks["arrive"], *caption("image"))
     at(marks["arrive"] + int(0.7 * BEATS["arrive"] * FPS), enable(photon, False))
 
     # First held frame: hand over to the reel's state (eyepiece, labels) and hide the intro.
-    f = FRAMING["flat"]
+    f = FRAMING[mode]
     sun = f["sun_label"]
-    vec = lambda v: "{ " + ", ".join(str(x) for x in v) + " }"
+    face = "true" if f["face_camera"] else "false"
     at(marks["hold"],
-       *[enable(u, False) for u in rays + [cap, clock, photon, sun_globe, corona]], enable(sun_glare, True),
+       *[enable(u, False) for u in rays + caps + [clock, photon, sun_globe, corona]], enable(sun_glare, True),
        f"{SP}('{GLARE_OPACITY}', {GLARE})", f"{SP}('{SUNSTAR_OPACITY}', 1.0)",
        f"{SP}('{P}PlanetSize', 1)", f"{SP}('{LABEL}Text', 'Telescope: planet x56,600 (M) ')",
        f"{SP}('{P}Scale', {f['scale']})", f"{SP}('{P}CartesianPosition', {vec(f['eyepiece'])})",
        f"{SP}('{LABEL}CartesianPosition', {vec(f['label'])})", f"{SP}('{LABEL}Scale', {f['label_scale']})",
-       f"{SP}('{P}FaceCamera', false)", f"{SP}('{LABEL}FaceCamera', false)",
+       f"{SP}('{P}FaceCamera', {face})", f"{SP}('{LABEL}FaceCamera', {face})",
        f"{SP}('{SUN_LABEL}Renderable.OrientationOption', {sun['orient']})",
        f"{SP}('{SUN_LABEL}Translation.Position', {vec(sun['offset'])})",
        f"{SP}('{SUN_LABEL}Renderable.Size', {sun['size']})",
@@ -432,10 +467,12 @@ def screen_xy(frame, target, lift):
     return 2 * v[0] / -v[2], 2 * v[1] / -v[2] + lift
 
 
-def write(path, frames, marks, events, info):
+def write(path, frames, marks, events, info, layout):
     # (target, lift until the trip, lift on the trip); the Sun's name sits under its box at first
-    labels = {"PlanetLabel": (info["planet"], 0.07, 0.07), "SunLabel": (np.zeros(3), -I.BOX[1] - 0.07, 0.07),
-              "DistanceLabel": (info["planet"] / 2, -0.08, -0.08)}
+    k_ = layout["scale"]
+    labels = {"PlanetLabel": (info["planet"], 0.07 * k_, 0.07 * k_),
+              "SunLabel": (np.zeros(3), (-I.BOX[1] - 0.07) * k_, 0.07 * k_),
+              "DistanceLabel": (info["planet"] / 2, -0.08 * k_, -0.08 * k_)}
     entries = []          # (timestamp, order, line); playback needs them in time order
     clock = None
     # Every clock line starts in the same column (the longest one centered), so the year
@@ -462,7 +499,7 @@ def write(path, frames, marks, events, info):
                                    1 - smooth((k - marks["fly"] + 1) / OVERVIEW_FADE))
         if marks["fly"] <= k < marks["travel"]:
             # The planet's marker gives way to its image as the image grows past a few pixels
-            r_px = PX_PER_RAD * I.R_EARTH / fr["dist"]
+            r_px = layout["px_per_rad"] * I.R_EARTH / fr["dist"]
             scripts += opacity(DOT_OPACITY, fade(r_px, *DOT_FADE))
         if marks["travel"] <= k < marks["hold"]:
             to_sun = float(np.linalg.norm(fr["cam"]))
@@ -498,13 +535,17 @@ def write(path, frames, marks, events, info):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=f"{RECORDINGS}/sgl_intro_flat.osrectxt")
-    ap.add_argument("--reel", default=f"{RECORDINGS}/sgl_reel_flat.osrectxt")
+    ap.add_argument("--dome", action="store_true", help="lay the opening out for the dome master")
+    ap.add_argument("--out")
+    ap.add_argument("--reel")
     args = ap.parse_args()
-    frames, marks, info = build(args.reel)
-    write(args.out, frames, marks, events_for(frames, marks), info)
+    mode = "dome" if args.dome else "flat"
+    out = args.out or f"{RECORDINGS}/sgl_intro_{mode}.osrectxt"
+    reel = args.reel or f"{RECORDINGS}/sgl_reel_{mode}.osrectxt"
+    frames, marks, info = build(reel, LAYOUT[mode])
+    write(out, frames, marks, events_for(frames, marks, mode), info, LAYOUT[mode])
     left = date_text(info["et_emit"], info["et_arrive"], "%B %Y")
-    print(f"wrote {args.out}: {len(frames)} frames, {len(frames) / FPS:.1f} s; the light left in {left}")
+    print(f"wrote {out}: {len(frames)} frames, {len(frames) / FPS:.1f} s; the light left in {left}")
     print("beats start at frames", marks)
 
 

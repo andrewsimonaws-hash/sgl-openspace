@@ -197,7 +197,26 @@ local Diagram = {
 local nodes = { Planet, PlanetDot, SunDot, Photon, Corona }
 for _, n in ipairs(LimbNodes) do table.insert(nodes, n) end
 for _, n in ipairs(Rays) do table.insert(nodes, n) end
-local screens = { Caption, Clock, Diagram, PlanetLabel, SunLabel, DistanceLabel }
+-- On the dome a full-width caption would be too small to read, so it's split over two
+-- lines, each its own text sized to the longest line (make_intro.py --dome uses these).
+local function domeCaption(id)
+  return {
+    Identifier = id,
+    Name = "Intro caption (dome)",
+    Type = "ScreenSpaceText",
+    Text = "30 parsecs away to a focus 550-1,000 AU beyond",
+    CartesianPosition = { 0.0, -2.2, -2.0 },
+    Scale = 1.0,
+    FontSize = 60,
+    BackgroundColor = { 0.0, 0.0, 0.0, 0.4 },
+    FaceCamera = true,
+    Enabled = false
+  }
+end
+local DomeCaption1 = domeCaption("SGL_IntroDomeCaption1")
+local DomeCaption2 = domeCaption("SGL_IntroDomeCaption2")
+
+local screens = { Caption, Clock, Diagram, PlanetLabel, SunLabel, DistanceLabel, DomeCaption1, DomeCaption2 }
 
 asset.onInitialize(function()
   for _, n in ipairs(nodes) do openspace.addSceneGraphNode(n) end

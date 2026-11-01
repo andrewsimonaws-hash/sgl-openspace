@@ -41,7 +41,7 @@ Press **B** to step through the biosignature maps, with a caption for each, and 
 | `SGL_IntroCorona` | A glow around the textured Sun for the close pass |
 | `SGL_IntroCaption`, `SGL_IntroClock`, `SGL_IntroDiagram`, name labels | Screen-space captions, the date and distance, the not-to-scale bending diagram (joined by two lines to a box around the Sun, which the overview holds still on screen), and names placed over the planet and the Sun each frame |
 
-`intro.py` holds the geometry and generates the asset, and `tools/make_intro.py` writes the recording. The recording ends on the flat reel's first keyframe and restores the reel's state (eyepiece, labels, Sun glare).
+`intro.py` holds the geometry and generates the asset, and `tools/make_intro.py` writes the recording. With `--dome` it lays the opening out for the fisheye master: the overview 1.6× larger, the clock above it, and each caption split over two lines (`SGL_IntroDomeCaption1` and `2`) below, all turned to face the camera. The recording ends on the flat reel's first keyframe and restores the reel's state (eyepiece, labels, Sun glare).
 
 The profile opens paused at the mission start. The camera sits just behind the image plane, slightly off the focal axis, looking back toward the Sun, so the image plane, the formation, the focal line and the Sun are all in view. At a delta time of 3600 (one hour per second), the whole sweep plays in about 5½ minutes.
 
@@ -73,6 +73,7 @@ The profile opens paused at the mission start. The camera sits just behind the i
   - **Text:** `ScreenSpaceText` draws at `FontSize` (15 by default) and then stretches to its `Scale`, so the captions set `FontSize = 60` to stay sharp.
   - **Text boxes:** OpenSpace 0.22 draws `ScreenSpaceText` into an RGB texture with no alpha, so each caption sits on an opaque black box. It's invisible against space, but it shows over the Earth or the Sun. `install_module.py` patches the texture to RGBA. The caption and the clock then get a 40% `BackgroundColor` band, so white text stays legible over clouds and the Sun.
   - **Config path:** `${CONFIG}` resolves to the source build's `config` folder.
+- **Fisheye framing:** SGCT rotates the cube map by 90° − `tilt`, so with `"tilt": 90` the camera's forward direction is the center of the dome master and its up is the top. Angle from forward maps linearly to radius (90° at the rim). The dome reel looks across the focal axis from 2 km off it, so the image plane and the Sun land about 62° either side of center.
 - **Trail widths:** a trail's width is `Renderable.Appearance.LineWidth`, and planet orbits default to 10 px. The profiles set them to 6 px at 0.8 opacity, and the spacecraft trails are 1.5 px at 0.8.
 - **Verified in the running app:**
   - The image plane sits 650.0000 AU from the Sun along the intended direction.
@@ -104,5 +105,4 @@ The profile opens paused at the mission start. The camera sits just behind the i
 ## Next steps
 
 - **Reveal the samples over time.** They currently appear all at once; a time-filtered point cloud would reveal each one as the formation reaches it.
-- **The opening on the dome.** It's framed for a flat screen. A dome version needs the camera pitched and the captions moved into the planetarium's front viewing zone.
 - **An instrument view.** A second pass that draws the ring as a 1 m telescope at 443 nm would record it, behind a switch.

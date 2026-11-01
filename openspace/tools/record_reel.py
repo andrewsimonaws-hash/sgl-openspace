@@ -23,29 +23,30 @@ SIZE_SWITCHES = (9.0, 13.0, 17.0)      # seconds into the clip
 P = "ScreenSpace.SGL_Telescope."
 LABEL = "ScreenSpace.SGL_TelescopeLabel."
 
-# camera position and up vector in the image plane's frame (m), camera pitch (rad, up is
-# positive), orbit rate per step, eyepiece scale and position, label position and scale,
+# camera position and up vector in the image plane's frame (m), camera pitch and yaw (rad;
+# up and right are positive, measured from looking at the image plane), orbit rate per step, eyepiece scale and position, label position and scale,
 # whether the screen-space planes turn toward the camera (which foreshortens them when far
 # off-axis), and the Sun label: orientation (0 = camera view direction, 1 = camera
 # position normal), offset from the marker (m, 1e9 m away), size exponent, min-max pixels
 FRAMING = {
     "flat": {
-        "camera": (970, 300, 3000), "up": (0, 1, 0), "pitch": 0.0, "orbit": 0.04,
+        "camera": (970, 300, 3000), "up": (0, 1, 0), "pitch": 0.0, "yaw": 0.0, "orbit": 0.04,
         "scale": 0.38, "eyepiece": (-1.05, 0.42, -2.0),
         "label": (-1.05, -0.03, -2.0), "label_scale": 0.4, "face_camera": False,
         "sun_label": {"orient": 0, "offset": (1.1e7, 1.3e7, 0), "size": 6.6,
                       "minmax": (14, 28)},
     },
-    # In fisheye the camera looks the same way from behind the image plane, pitched up so
-    # the image plane and the Sun sit low on the dome master, in a planetarium's front
-    # viewing zone, with the focal line arcing down from overhead. The Sun label faces the
-    # camera and keeps its world size (min-max wide open): each cube face applies the pixel
-    # clamp on its own, so a clamped label can split where it crosses a face seam.
+    # In fisheye the camera sits 2 km from the image plane, off to the side and sunward of it,
+    # and looks across the focal axis: the image plane on the left of the dome master, the Sun
+    # (650 AU away, along the axis) on the right, the axis running across between them, just
+    # below center. The eyepiece and its label sit in the open sky above. The Sun label faces
+    # the camera and keeps its world size (min-max wide open): each cube face applies the
+    # pixel clamp on its own, so a clamped label can split where it crosses a face seam.
     "dome": {
-        "camera": (200, -800, 1500), "up": (0, 1, 0), "pitch": 0.5, "orbit": 0.12,
-        "scale": 1.0, "eyepiece": (2.5, -0.8, -2.0),
-        "label": (2.5, 0.25, -2.0), "label_scale": 0.9, "face_camera": True,
-        "sun_label": {"orient": 1, "offset": (3e7, 3e7, 0), "size": 6.0,
+        "camera": (1640, 0, -1150), "up": (0, 1, 0), "pitch": 0.15, "yaw": 1.09, "orbit": 0.03,
+        "scale": 0.68, "eyepiece": (0.0, 1.15, -1.64),
+        "label": (0.0, 0.39, -1.96), "label_scale": 0.75, "face_camera": True,
+        "sun_label": {"orient": 1, "offset": (-3.6e8, 6e7, 0), "size": 6.0,
                       "minmax": (1, 100)},
     },
 }
@@ -56,18 +57,12 @@ def lua_vec(v):
     return "{ " + ", ".join(str(x) for x in v) + " }"
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--dome", action="store_true")
-    ap.add_argument("--out")
-    args = ap.parse_args()
-    mode = "dome" if args.dome else "flat"
-    out = args.out or f"C:/Users/andre/OpenSpace/v0.22.0/user/recordings/sgl_reel_{mode}.osrectxt"
+def framing_scripts(mode):
+    """Scripts that set up the reel's first view: time, eyepiece, labels and camera."""
     f = FRAMING[mode]
     face = "true" if f["face_camera"] else "false"
     sun = f["sun_label"]
-
-    send([
+    return [
         "openspace.time.setPause(true)",
         "openspace.time.setTime('2075-01-01T06:00:00')",
         f"openspace.setPropertyValueSingle('{P}PlanetSize', 1)",
@@ -84,8 +79,20 @@ def main():
         f"openspace.setPropertyValueSingle('{SUN_LABEL}Renderable.MinMaxSize', {lua_vec(sun['minmax'])})",
         "openspace.navigation.setNavigationState({ Anchor = 'SGL_ImagePlane', "
         f"ReferenceFrame = 'SGL_ImagePlane', Position = {lua_vec(f['camera'])}, "
-        f"Up = {lua_vec(f['up'])}, Pitch = {f['pitch']} }})",
-    ], timeout=60)
+        f"Up = {lua_vec(f['up'])}, Pitch = {f['pitch']}, Yaw = {f['yaw']} }})",
+    ]
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dome", action="store_true")
+    ap.add_argument("--out")
+    args = ap.parse_args()
+    mode = "dome" if args.dome else "flat"
+    out = args.out or f"C:/Users/andre/OpenSpace/v0.22.0/user/recordings/sgl_reel_{mode}.osrectxt"
+    f = FRAMING[mode]
+
+    send(framing_scripts(mode), timeout=60)
     time.sleep(2)
 
     send(["openspace.sessionRecording.startRecording()",
