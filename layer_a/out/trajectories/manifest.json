@@ -10,7 +10,7 @@
     "agents": 12,
     "spacing_m": 120.0
   },
-  "brightness": "noiseless image-plane value at each stop, from textures/image_plane.npy, max = 1",
+  "sample_color": "r, g, b: noiseless image-plane value at each stop in EPIC's 680 / 551 / 443 nm bands, from textures/image_plane_rgb.npy, with the stretch of image_plane_stretched_rgb.png; brightness is their mean",
   "scenarios": {
     "m0_spiral": {
       "csv": "m0_spiral.csv",

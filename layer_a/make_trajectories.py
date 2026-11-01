@@ -9,7 +9,8 @@ Three scenarios, all in image-plane metres (origin on the optical axis, x right,
 Every hop is a bang-coast-bang transfer: the analytical double-integrator profile the
 thesis policies were trained to imitate (thesis section 2.2), at the "balanced" Pareto
 setting T = 2.35 T_min. These are reference paths, not outputs of the trained networks.
-Each stop also gets the image-plane brightness there, read from out/textures.
+Each stop also gets the image-plane color there (EPIC's 680 / 551 / 443 nm bands), read
+from out/textures.
 
     python make_trajectories.py      # run make_textures.py first
 """
@@ -100,12 +101,17 @@ def sample(segs, times):
     return out, states
 
 
-class Brightness:
-    """Bilinear lookup of the noiseless image-plane brightness at (x, y) in metres."""
+class ImagePlaneColor:
+    """Bilinear lookup of the noiseless image-plane color at (x, y) in metres.
+
+    Returns the 680 / 551 / 443 nm values with the stretch of image_plane_stretched_rgb.png,
+    so each sample matches the glow under it.
+    """
 
     def __init__(self, manifest):
-        self.img = np.load(os.path.join(TEX, "image_plane.npy")).astype(np.float64)
-        self.img /= self.img.max()
+        stretch = manifest["color"]["textures"]["image_plane_stretched"]
+        img = np.load(os.path.join(TEX, "image_plane_rgb.npy")).astype(np.float64)
+        self.img = np.clip((img - stretch["black"]) / (stretch["white"] - stretch["black"]), 0, 1)
         self.pitch = manifest["geometry"]["pitch_m"]
         self.c = (self.img.shape[0] - 1) / 2
 
@@ -115,8 +121,8 @@ class Brightness:
         r0, c0 = int(np.floor(row)), int(np.floor(col))
         fr, fc = row - r0, col - c0
         i = self.img
-        return float((1 - fr) * ((1 - fc) * i[r0, c0] + fc * i[r0, c0 + 1])
-                     + fr * ((1 - fc) * i[r0 + 1, c0] + fc * i[r0 + 1, c0 + 1]))
+        return ((1 - fr) * ((1 - fc) * i[r0, c0] + fc * i[r0, c0 + 1])
+                + fr * ((1 - fc) * i[r0 + 1, c0] + fc * i[r0 + 1, c0 + 1]))
 
 
 def raster_rows(radius, spacing):
@@ -129,7 +135,7 @@ def raster_rows(radius, spacing):
     return [r for r in rows if r]
 
 
-def write_scenario(name, agent_segs, agent_stops, stop_times, dt, brightness, radius):
+def write_scenario(name, agent_segs, agent_stops, stop_times, dt, color, radius):
     os.makedirs(OUT, exist_ok=True)
     end = max(segs[-1][2] for segs in agent_segs)
     times = np.arange(0.0, end + dt, dt)
@@ -145,14 +151,15 @@ def write_scenario(name, agent_segs, agent_stops, stop_times, dt, brightness, ra
     n_samples = 0
     with open(os.path.join(OUT, f"{name}_samples.csv"), "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["t_s", "sc", "x_m", "y_m", "in_disk", "brightness"])
+        w.writerow(["t_s", "sc", "x_m", "y_m", "in_disk", "brightness", "r", "g", "b"])
         for a, stops in enumerate(agent_stops):
             times_a = stop_times[a] if isinstance(stop_times[0], list) else stop_times
             for t, p in zip(times_a, stops):
                 inside = bool(np.hypot(*p) <= radius)
                 n_samples += inside
+                rgb = color(*p)
                 w.writerow([f"{t:.0f}", a, f"{p[0]:.3f}", f"{p[1]:.3f}", int(inside),
-                            f"{brightness(*p):.5f}"])
+                            f"{rgb.mean():.5f}", *(f"{v:.5f}" for v in rgb)])
     min_sep = None
     if len(paths) > 1:
         stack = np.stack(paths)                     # agents x times x 2
@@ -169,7 +176,7 @@ def main():
     with open(os.path.join(TEX, "manifest.json")) as f:
         tex = json.load(f)
     radius = tex["geometry"]["image_diameter_m"] / 2
-    bright = Brightness(tex)
+    color = ImagePlaneColor(tex)
     scenarios = {}
 
     # M0: thesis acquisition spiral, 20 arms x 8 radii, ring by ring.
@@ -180,12 +187,12 @@ def main():
             th = 2 * np.pi * j / 20 + k * np.pi / 20 * 0.5
             stops.append(np.array([r * np.cos(th), r * np.sin(th)]))
     segs, times = schedule(stops)
-    scenarios["m0_spiral"] = write_scenario("m0_spiral", [segs], [stops], times, 300.0, bright, radius)
+    scenarios["m0_spiral"] = write_scenario("m0_spiral", [segs], [stops], times, 300.0, color, radius)
 
     # Single-spacecraft raster over the whole disk.
     stops = [p for row in raster_rows(radius, ROW_SPACING) for p in row]
     segs, times = schedule(stops)
-    scenarios["raster_single"] = write_scenario("raster_single", [segs], [stops], times, 1800.0, bright, radius)
+    scenarios["raster_single"] = write_scenario("raster_single", [segs], [stops], times, 1800.0, color, radius)
 
     # Twelve spacecraft in a vertical line, AGENT_SPACING apart, sweeping left-right-left.
     # Each sweep stops every ROW_SPACING in x; between sweeps the line steps down one row.
@@ -201,7 +208,7 @@ def main():
             path += [np.array([x, y0 - j * ROW_SPACING]) for x in row_x]
         agent_stops.append(path)
     segs, times = synced_schedule(agent_stops)
-    scenarios["formation12"] = write_scenario("formation12", segs, agent_stops, times, 300.0, bright, radius)
+    scenarios["formation12"] = write_scenario("formation12", segs, agent_stops, times, 300.0, color, radius)
 
     manifest = {
         "description": "Bang-coast-bang reference paths across the SGL image plane (layer A).",
@@ -209,7 +216,9 @@ def main():
         "image_radius_m": radius,
         "thrust_m_s2": THRUST, "pareto_stretch": PARETO_STRETCH, "dwell_s": DWELL,
         "row_spacing_m": ROW_SPACING, "formation": {"agents": N_AGENTS, "spacing_m": AGENT_SPACING},
-        "brightness": "noiseless image-plane value at each stop, from textures/image_plane.npy, max = 1",
+        "sample_color": ("r, g, b: noiseless image-plane value at each stop in EPIC's 680 / 551 / 443 nm"
+                         " bands, from textures/image_plane_rgb.npy, with the stretch of"
+                         " image_plane_stretched_rgb.png; brightness is their mean"),
         "scenarios": scenarios,
     }
     with open(os.path.join(OUT, "manifest.json"), "w") as f:

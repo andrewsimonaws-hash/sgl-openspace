@@ -17,6 +17,7 @@ import shutil
 from datetime import datetime, timedelta
 
 import numpy as np
+from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAYER_A = os.path.join(HERE, "..", "layer_a", "out")
@@ -32,6 +33,37 @@ FOCAL_END_AU = 1000.0
 HOP_SUBSAMPLES = 6
 TELESCOPE_SC = 5        # whose view the telescope inset shows (mid-formation)
 PALETTE = [(1.0, 0.66, 0.25), (0.45, 0.68, 1.0), (0.55, 0.88, 0.6), (0.95, 0.5, 0.8)]
+TEXTURES = ["image_plane_stretched_rgb.png", "image_plane_thesis_psf_rgb.png", "truth_rgb.png",
+            "recovered_filtered_snr10_rgb.png"]
+BIO_TEXTURES = ["bio_ndvi_truth.png", "bio_ndvi_recorded.png", "bio_ndvi_snr10.png", "bio_ndvi_tt_fig4.png",
+                "bio_o2_truth.png", "bio_o2_snr10.png"]
+# B steps through these: (layer, caption, eyepiece texture). With the telescope view loaded,
+# the eyepiece shows the planet in the same false color.
+BIO_VIEWS = [
+    ("SGL_BioNDVITruth", "Vegetation (NDVI): green plants, tan desert, blue ocean, white cloud", "ndvi"),
+    ("SGL_BioNDVIRecorded", "Vegetation, as recorded: the blur flattens it to about the Sahara's", "ndvi"),
+    ("SGL_BioNDVIRecovered", "Vegetation, recovered at SNR 10 per band", "ndvi"),
+    ("SGL_BioNDVIMission", "Vegetation, recovered with 1 m telescopes (SNR 4, 128 px)", "ndvi"),
+    ("SGL_BioO2Truth", "Oxygen A-band depth: pale over high cloud, dark toward the limb", "o2"),
+    ("SGL_BioO2Recovered", "Oxygen A-band depth, recovered at SNR 10 per band", "o2"),
+]
+
+
+def sample_palette(rgb):
+    """Quantize sample colors to a 256-entry palette sorted by brightness.
+
+    OpenSpace colors a point cloud through a colormap, not per point, so each point stores
+    its palette index and the palette becomes the colormap. Returns (palette, index).
+    """
+    img = Image.fromarray((rgb[None] * 255).round().astype(np.uint8), mode="RGB")
+    q = img.quantize(256, method=Image.Quantize.MEDIANCUT)
+    idx = np.asarray(q)[0]
+    used = int(idx.max()) + 1
+    palette = np.array(q.getpalette()[:3 * used], dtype=float).reshape(used, 3) / 255
+    order = np.argsort(palette @ [0.2126, 0.7152, 0.0722])
+    rank = np.empty(used, int)
+    rank[order] = np.arange(used)
+    return palette[order], rank[idx]
 
 
 def iso(seconds):
@@ -109,25 +141,34 @@ def main():
     image_d = geo["image_diameter_m"]
     ext_span = geo["extended_texture_span_m"]
 
-    os.makedirs(os.path.join(OUT, "textures"), exist_ok=True)
+    shutil.rmtree(os.path.join(OUT, "textures"), ignore_errors=True)
+    os.makedirs(os.path.join(OUT, "textures"))
     os.makedirs(os.path.join(OUT, "data"), exist_ok=True)
-    for name in ("image_plane_stretched.png", "image_plane_stretched_rgb.png",
-                 "image_plane_thesis_psf_rgb.png", "truth_rgb.png", "recovered_filtered_snr10_rgb.png"):
-        shutil.copy(os.path.join(LAYER_A, "textures", name), os.path.join(OUT, "textures", name))
+    for folder, names in (("textures", TEXTURES), ("biosignatures", BIO_TEXTURES)):
+        for name in names:
+            shutil.copy(os.path.join(LAYER_A, folder, name), os.path.join(OUT, "textures", name))
 
     # Formation stops, grouped per spacecraft, from the layer-A samples CSV.
     stops = {}
     with open(os.path.join(LAYER_A, "trajectories", "formation12_samples.csv")) as f:
         rows = list(csv.DictReader(f))
+    for r in rows:
+        stops.setdefault(int(r["sc"]), []).append((float(r["t_s"]), np.array([float(r["x_m"]), float(r["y_m"])])))
+    end_s = max(s[-1][0] for s in stops.values()) + traj["dwell_s"]
+    inside = [r for r in rows if r["in_disk"] == "1"]
+    palette, cidx = sample_palette(np.array([[float(r[c]) for c in "rgb"] for r in inside]))
     with open(os.path.join(OUT, "data", "formation12_samples.csv"), "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["x", "y", "z", "brightness", "sc"])
-        for r in rows:
-            p = np.array([float(r["x_m"]), float(r["y_m"])])
-            stops.setdefault(int(r["sc"]), []).append((float(r["t_s"]), p))
-            if r["in_disk"] == "1":
-                w.writerow([r["x_m"], r["y_m"], "0", r["brightness"], r["sc"]])
-    end_s = max(s[-1][0] for s in stops.values()) + traj["dwell_s"]
+        w.writerow(["x", "y", "z", "brightness", "cidx", "sc"])
+        for r, k in zip(inside, cidx):
+            # k + 0.5 lands in the middle of colormap entry k (nearest lookup over 0..len)
+            w.writerow([r["x_m"], r["y_m"], "0", r["brightness"], f"{k + 0.5:.1f}", r["sc"]])
+    with open(os.path.join(OUT, "data", "sample_colors.cmap"), "w", newline="\n") as f:
+        f.write("# Formation sample colors (EPIC 680 / 551 / 443 nm), indexed by cidx\n")
+        f.write(f"{len(palette)}\n")
+        for c in palette:
+            # +0.25/255 so OpenSpace's truncation to 8 bits gives back the intended level
+            f.write(" ".join(f"{min(v + 0.25 / 255, 1.0):.6f}" for v in c) + " 1.0\n")
 
     # OpenSpace reads a 3x3 Rotation table column by column, so list the columns
     # (the local x, y, z axes in galactic coordinates) one after another.
@@ -138,7 +179,6 @@ def main():
 -- (galactic l = {TARGET_L}, b = {TARGET_B}); x and y span the image plane in metres.
 
 local sun = asset.require("scene/solarsystem/sun/transforms")
-local colormaps = asset.require("util/default_colormaps")
 
 local AU = {AU}
 local ImageDiameter = {image_d:.3f}      -- metres, planet image at 650 AU
@@ -292,9 +332,6 @@ end
 local Glow = imagePlaneLayer("SGL_ImageGlow", "Image-plane brightness (colour, stretched)",
   "image_plane_stretched_rgb.png", {ext_span:.3f} / 2, true,
   "What the telescopes record across the image plane with the physical SGL blur, per band.")
-local GlowBlue = imagePlaneLayer("SGL_ImageGlowBlue", "Image-plane brightness (443 nm, as in the thesis)",
-  "image_plane_stretched.png", {ext_span:.3f} / 2, false,
-  "The single blue band the thesis used. The sample points are coloured from this band.")
 local GlowThesis = imagePlaneLayer("SGL_ImageGlowThesis", "Thesis PSF (too sharp)",
   "image_plane_thesis_psf_rgb.png", {ext_span:.3f} / 2, false,
   "The thesis PSF put 65% of the light in the directly imaged spot; the physical share is 0.4%.")
@@ -312,25 +349,119 @@ local Samples = {{
     Type = "RenderablePointCloud",
     File = asset.resource("data/formation12_samples.csv"),
     Unit = "m",
+    -- cidx indexes a palette of the recorded colors (see build_asset.py, sample_palette)
     Coloring = {{
-      ColorMapping = {{ File = colormaps.Uniform.Inferno, Parameter = "brightness" }}
+      ColorMapping = {{ File = asset.resource("data/sample_colors.cmap"), Parameter = "cidx",
+        ValueRange = {{ 0, {len(palette)} }} }}
     }},
     SizeSettings = {{ ScaleExponent = 1.2 }}
   }},
   GUI = {{ Name = "Formation samples", Path = "/SGL",
-    Description = "One point per stop inside the disk, coloured by the brightness recorded there." }}
+    Description = "One point per stop inside the disk, in the color recorded there (680 / 551 / 443 nm)." }}
+}}
+
+-- Biosignatures over the planet's disk: vegetation (NDVI, 680 and 780 nm) and the depth of
+-- the oxygen A-band (764 against 780 nm). Off by default; B steps through them.
+local function bioLayer(id, name, texture, description)
+  return {{
+    Identifier = id,
+    Parent = ImagePlane.Identifier,
+    -- 1 m toward the camera so it draws over the image layers in the same plane
+    Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {{ 0, 0, 1 }} }} }},
+    Renderable = {{
+      Type = "RenderablePlaneImageLocal",
+      Texture = asset.resource("textures/" .. texture),
+      Size = ImageDiameter / 2,
+      MirrorBackside = true,
+      BlendMode = "Normal",
+      Enabled = false
+    }},
+    GUI = {{ Name = name, Path = "/SGL/Biosignatures", Description = description }}
+  }}
+end
+
+local BioNDVITruth = bioLayer("SGL_BioNDVITruth", "Vegetation (NDVI): planet", "bio_ndvi_truth.png",
+  "NDVI = (R780 - R680) / (R780 + R680) from EPIC's calibrated bands. Green: plants; tan: desert; blue: ocean; white: cloud.")
+local BioNDVIRecorded = bioLayer("SGL_BioNDVIRecorded", "Vegetation (NDVI): as recorded", "bio_ndvi_recorded.png",
+  "NDVI of the image-plane measurements before recovery. The blur averages it toward the whole disk's value, 0.08, the same as the Sahara's.")
+local BioNDVIRecovered = bioLayer("SGL_BioNDVIRecovered", "Vegetation (NDVI): recovered, SNR 10", "bio_ndvi_snr10.png",
+  "From the 680 and 780 nm bands, each recovered at SNR ~10 with the filter strength set from the noise level alone.")
+local BioNDVIMission = bioLayer("SGL_BioNDVIMission", "Vegetation (NDVI): recovered, 1 m telescopes", "bio_ndvi_tt_fig4.png",
+  "128 x 128 samples with 1 m telescopes at SNR 4.1 per band, the regime of Toth & Turyshev (2021) Fig. 4.")
+local BioO2Truth = bioLayer("SGL_BioO2Truth", "Oxygen A-band depth: planet", "bio_o2_truth.png",
+  "1 - R764 / R780. Oxygen is everywhere; the depth follows the light path: shallow over high cloud, deep toward the limb.")
+local BioO2Recovered = bioLayer("SGL_BioO2Recovered", "Oxygen A-band depth: recovered, SNR 10", "bio_o2_snr10.png",
+  "From the 764 and 780 nm bands, each recovered at SNR ~10.")
+
+-- Caption for the biosignature views, hidden until B is pressed. ScreenSpaceText sizes its
+-- box from the first text it shows, so it starts with the longest caption.
+local BioCaption = {{
+  Identifier = "SGL_BioCaption",
+  Name = "Biosignature caption",
+  Type = "ScreenSpaceText",
+  Text = "{max((v[1] for v in BIO_VIEWS), key=len)} (B)",
+  CartesianPosition = {{ 0.0, -0.56, -2.0 }},
+  Scale = 1.15,
+  FaceCamera = false,
+  Enabled = false
+}}
+
+local BioTextures = {{
+  rgb = asset.resource("textures/truth_rgb.png"),
+  ndvi = asset.resource("textures/bio_ndvi_truth.png"),
+  o2 = asset.resource("textures/bio_o2_truth.png")
+}}
+
+local NextBioView = {{
+  Identifier = "sgl.biosignatures.next_view",
+  Name = "Next biosignature view",
+  -- Actions run in the global scope, so the views and texture paths are written into the command
+  Command = "local tex = {{ rgb = [==[" .. BioTextures.rgb .. "]==], ndvi = [==[" .. BioTextures.ndvi
+    .. "]==], o2 = [==[" .. BioTextures.o2 .. "]==] }}\\n" .. [[
+    local views = {{
+{chr(10).join(f'      {{ "{layer}", "{caption}", "{tex}" }},' for layer, caption, tex in BIO_VIEWS)}
+    }}
+    local current = 0
+    for i, v in ipairs(views) do
+      if openspace.propertyValue("Scene." .. v[1] .. ".Renderable.Enabled") then current = i end
+    end
+    local nextView = (current + 1) % (#views + 1)
+    for i, v in ipairs(views) do
+      openspace.setPropertyValueSingle("Scene." .. v[1] .. ".Renderable.Enabled", i == nextView)
+    end
+    local caption = "ScreenSpace.SGL_BioCaption."
+    openspace.setPropertyValueSingle(caption .. "Enabled", nextView > 0)
+    if nextView > 0 then
+      local text = views[nextView][2] .. " (B)"
+      openspace.setPropertyValueSingle(caption .. "Text", text)
+    end
+    local eyepiece = "ScreenSpace.SGL_Telescope.PlanetTexture"
+    if openspace.hasProperty(eyepiece) then
+      openspace.setPropertyValueSingle(eyepiece, tex[nextView > 0 and views[nextView][3] or "rgb"])
+    end
+  ]],
+  Documentation = "Steps through the vegetation and oxygen maps: planet, as recorded, recovered, then off",
+  GuiPath = "/SGL",
+  IsLocal = false
 }}
 
 local nodes = {{ Frame, FocalStart, FocalEnd, ImagePlane, SunToFocal, SunDirection, SunMarker,
-  SunLabel, Glow, GlowBlue, GlowThesis, Truth, Recovered, Samples }}
+  SunLabel, Glow, GlowThesis, Truth, Recovered, Samples, BioNDVITruth, BioNDVIRecorded,
+  BioNDVIRecovered, BioNDVIMission, BioO2Truth, BioO2Recovered }}
 for _, n in ipairs(axisNodes) do table.insert(nodes, n) end
 for _, n in ipairs(axisLines) do table.insert(nodes, n) end
 
 asset.onInitialize(function()
   for _, n in ipairs(nodes) do openspace.addSceneGraphNode(n) end
+  openspace.addScreenSpaceRenderable(BioCaption)
+  openspace.action.registerAction(NextBioView)
+  openspace.bindKey("B", NextBioView.Identifier)
 end)
 
 asset.onDeinitialize(function()
+  openspace.clearKey("B")
+  openspace.action.removeAction(NextBioView)
+  openspace.removeScreenSpaceRenderable(BioCaption)
   for i = #nodes, 1, -1 do openspace.removeSceneGraphNode(nodes[i]) end
 end)
 
@@ -338,7 +469,7 @@ for _, n in ipairs(nodes) do asset.export(n) end
 
 asset.meta = {{
   Name = "Solar gravitational lens",
-  Description = "Focal line, image plane and samples for an SGL imaging mission at 650 AU.",
+  Description = "Focal line, image plane, samples and biosignature maps for an SGL imaging mission at 650 AU.",
   Author = "Andrew Simon",
   License = "MIT"
 }}

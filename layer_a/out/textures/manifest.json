@@ -27,38 +27,6 @@
     "penalty_times_sqrt_n_disk": 1.0379434009625872,
     "disk_pixels": 51040
   },
-  "textures": {
-    "truth": {
-      "file": "truth.png",
-      "black": 0.0,
-      "white": 1.0
-    },
-    "truth_rgba": {
-      "file": "truth_rgba.png",
-      "black": 0.0,
-      "white": 1.0
-    },
-    "image_plane": {
-      "file": "image_plane.png",
-      "black": 0.0,
-      "white": 58.424153746406944
-    },
-    "image_plane_stretched": {
-      "file": "image_plane_stretched.png",
-      "black": 33.2509641161557,
-      "white": 58.424153746406944
-    },
-    "image_plane_thesis_psf": {
-      "file": "image_plane_thesis_psf.png",
-      "black": 0.16875362797036775,
-      "white": 1.1161300913722656
-    },
-    "recovered_noiseless": {
-      "file": "recovered_noiseless.png",
-      "black": 0.0,
-      "white": 1.0
-    }
-  },
   "recoveries": [
     {
       "target_snr_r": 1,
@@ -66,22 +34,7 @@
       "plain_snr_r": 1.0002060692365327,
       "plain_cg_iterations": 77,
       "filtered_snr_r": 3.983023627640599,
-      "filter_reg": 3.9616004821713657,
-      "measurements": {
-        "file": "measurements_snr01.png",
-        "black": 32.81665042635493,
-        "white": 58.624286129343574
-      },
-      "plain": {
-        "file": "recovered_plain_snr01.png",
-        "black": 0.0,
-        "white": 1.0
-      },
-      "filtered": {
-        "file": "recovered_filtered_snr01.png",
-        "black": 0.0,
-        "white": 1.0
-      }
+      "filter_reg": 3.9616004821713657
     },
     {
       "target_snr_r": 3,
@@ -89,22 +42,7 @@
       "plain_snr_r": 2.98346579737872,
       "plain_cg_iterations": 75,
       "filtered_snr_r": 5.960120292113895,
-      "filter_reg": 1.320533494057122,
-      "measurements": {
-        "file": "measurements_snr03.png",
-        "black": 33.194881557672666,
-        "white": 58.48392655808322
-      },
-      "plain": {
-        "file": "recovered_plain_snr03.png",
-        "black": 0.0,
-        "white": 1.0
-      },
-      "filtered": {
-        "file": "recovered_filtered_snr03.png",
-        "black": 0.0,
-        "white": 1.0
-      }
+      "filter_reg": 1.320533494057122
     },
     {
       "target_snr_r": 10,
@@ -112,22 +50,7 @@
       "plain_snr_r": 9.957695995071564,
       "plain_cg_iterations": 73,
       "filtered_snr_r": 11.816751738587921,
-      "filter_reg": 0.3961600482171366,
-      "measurements": {
-        "file": "measurements_snr10.png",
-        "black": 33.239441109663666,
-        "white": 58.4472476839422
-      },
-      "plain": {
-        "file": "recovered_plain_snr10.png",
-        "black": 0.0,
-        "white": 1.0
-      },
-      "filtered": {
-        "file": "recovered_filtered_snr10.png",
-        "black": 0.0,
-        "white": 1.0
-      }
+      "filter_reg": 0.3961600482171366
     },
     {
       "target_snr_r": 30,
@@ -135,24 +58,15 @@
       "plain_snr_r": 29.766905032012932,
       "plain_cg_iterations": 73,
       "filtered_snr_r": 30.61728373139275,
-      "filter_reg": 0.03340411118169474,
-      "measurements": {
-        "file": "measurements_snr30.png",
-        "black": 33.2568170185241,
-        "white": 58.43035378877412
-      },
-      "plain": {
-        "file": "recovered_plain_snr30.png",
-        "black": 0.0,
-        "white": 1.0
-      },
-      "filtered": {
-        "file": "recovered_filtered_snr30.png",
-        "black": 0.0,
-        "white": 1.0
-      }
+      "filter_reg": 0.03340411118169474
     }
   ],
+  "arrays": {
+    "truth.npy": "443 nm planet, n x n, max 1",
+    "image_plane.npy": "443 nm image plane under the physical PSF, extended span",
+    "truth_rgb.npy": "680 / 551 / 443 nm planet, n x n x 3, common max 1",
+    "image_plane_rgb.npy": "680 / 551 / 443 nm image plane, extended span, n_ext x n_ext x 3"
+  },
   "color": {
     "bands": [
       "Band680nm",
@@ -205,6 +119,11 @@
           "Band551nm": 3.427891031618653,
           "Band443nm": 3.999045451542782
         },
+        "measurements": {
+          "file": "measurements_snr01_rgb.png",
+          "black": 20.41305841358721,
+          "white": 53.50314706074146
+        },
         "plain": {
           "file": "recovered_plain_snr01_rgb.png",
           "black": 0.0,
@@ -227,6 +146,11 @@
           "Band680nm": 5.04566702255605,
           "Band551nm": 5.2316862250803675,
           "Band443nm": 5.9739735212928124
+        },
+        "measurements": {
+          "file": "measurements_snr03_rgb.png",
+          "black": 20.54245990543971,
+          "white": 53.33412246216279
         },
         "plain": {
           "file": "recovered_plain_snr03_rgb.png",
@@ -251,6 +175,11 @@
           "Band551nm": 11.377535906713224,
           "Band443nm": 11.92761739569488
         },
+        "measurements": {
+          "file": "measurements_snr10_rgb.png",
+          "black": 20.648011968771765,
+          "white": 53.29979229443613
+        },
         "plain": {
           "file": "recovered_plain_snr10_rgb.png",
           "black": 0.0,
@@ -273,6 +202,11 @@
           "Band680nm": 30.64616428593012,
           "Band551nm": 30.283407236180295,
           "Band443nm": 30.759497759708218
+        },
+        "measurements": {
+          "file": "measurements_snr30_rgb.png",
+          "black": 20.634866785040504,
+          "white": 53.28302288564843
         },
         "plain": {
           "file": "recovered_plain_snr30_rgb.png",

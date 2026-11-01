@@ -18,7 +18,7 @@ def main():
     with open(os.path.join(OUT, "textures", "manifest.json")) as f:
         tex = json.load(f)
     pitch = tex["geometry"]["pitch_m"]
-    base = Image.open(os.path.join(OUT, "textures", "image_plane_stretched.png")).convert("RGB")
+    base = Image.open(os.path.join(OUT, "textures", "image_plane_stretched_rgb.png")).convert("RGB")
     size = base.size[0]
     c = (size - 1) / 2
 

@@ -1,0 +1,333 @@
+{
+  "description": "Vegetation (NDVI) and O2 A-band maps through the SGL (layer A).",
+  "bands": {
+    "Band680nm": {
+      "calibration_K": 9.3e-06
+    },
+    "Band764nm": {
+      "calibration_K": 2.36e-05
+    },
+    "Band780nm": {
+      "calibration_K": 1.435e-05
+    }
+  },
+  "truth": {
+    "disk_ndvi": 0.08194335863716526,
+    "disk_o2_depth": 0.6327564918851352,
+    "regions_ndvi": {
+      "Congo basin": 0.21000041013068607,
+      "Sahara": 0.07543153565327886,
+      "Europe": 0.23811383392225005
+    },
+    "region_pixels": {
+      "Congo basin": 795,
+      "Sahara": 1361,
+      "Europe": 587
+    }
+  },
+  "method": "blur with the aperture-averaged SGL PSF, Gaussian noise, (A + aI) recovery with a set by the discrepancy principle; scores compare NDVI / depth from recovered bands with the truth, per pixel and over 32 x 32 blocks",
+  "textures": {
+    "ndvi_truth": "bio_ndvi_truth.png",
+    "o2_truth": "bio_o2_truth.png"
+  },
+  "cases": [
+    {
+      "name": "snr30",
+      "n": 256,
+      "aperture_m": null,
+      "snr_r": 30,
+      "pitch_m": 5.234176017356967,
+      "aperture_over_pitch": 1.0,
+      "bands": {
+        "Band680nm": {
+          "sigma": 0.006070234069777543,
+          "snr_c": 6676.48499309026,
+          "plain_snr_r": 30.00619539427541,
+          "blind_snr_r": 30.48115199525314,
+          "oracle_snr_r": 30.482332832411874,
+          "blind_reg": 0.02193699552240257,
+          "oracle_reg": 0.023573667118223493
+        },
+        "Band764nm": {
+          "sigma": 0.0026127293443085724,
+          "snr_c": 6806.053529175503,
+          "plain_snr_r": 30.038648151298894,
+          "blind_snr_r": 30.431112272197495,
+          "oracle_snr_r": 30.435531854232604,
+          "blind_reg": 0.02116177763662559,
+          "oracle_reg": 0.018996655484110128
+        },
+        "Band780nm": {
+          "sigma": 0.0070982765318738815,
+          "snr_c": 6776.363256862369,
+          "plain_snr_r": 29.892035195964016,
+          "blind_snr_r": 30.503485994412717,
+          "oracle_snr_r": 30.54042544097793,
+          "blind_reg": 0.02193699552240257,
+          "oracle_reg": 0.025332447227483804
+        }
+      },
+      "scores": {
+        "ndvi": {
+          "pixel_r": 0.9326699823842052,
+          "pixel_rmse": 0.05275036002981326,
+          "block_r": 0.9999126938727001,
+          "block_rmse": 0.0014772921719199208,
+          "vegetated_blocks": 43,
+          "vegetated_found": 1.0,
+          "false_alarms": 0.0
+        },
+        "o2_depth": {
+          "pixel_r": 0.8836877937299654,
+          "pixel_rmse": 0.04955988551446721,
+          "block_r": 0.9998657679315739,
+          "block_rmse": 0.001146095026815305
+        },
+        "regions_ndvi": {
+          "Congo basin": {
+            "true": 0.21000041013068607,
+            "recovered": 0.21018747380717664
+          },
+          "Sahara": {
+            "true": 0.07543153565327886,
+            "recovered": 0.07563900181821213
+          },
+          "Europe": {
+            "true": 0.23811383392225005,
+            "recovered": 0.23799074570201043
+          }
+        },
+        "disk_o2_depth_measured": 0.6303072790304822,
+        "disk_o2_depth_uncertainty": 3.4076625880128e-07
+      },
+      "textures": {
+        "ndvi": "bio_ndvi_snr30.png",
+        "o2": "bio_o2_snr30.png"
+      }
+    },
+    {
+      "name": "snr10",
+      "n": 256,
+      "aperture_m": null,
+      "snr_r": 10,
+      "pitch_m": 5.234176017356967,
+      "aperture_over_pitch": 1.0,
+      "bands": {
+        "Band680nm": {
+          "sigma": 0.018006891617042983,
+          "snr_c": 2250.6842120966953,
+          "plain_snr_r": 10.086304817529093,
+          "blind_snr_r": 10.849105324559966,
+          "oracle_snr_r": 11.30211281975821,
+          "blind_reg": 0.06455459288815539,
+          "oracle_reg": 0.14245481944217828
+        },
+        "Band764nm": {
+          "sigma": 0.007890180439607201,
+          "snr_c": 2253.734995127313,
+          "plain_snr_r": 9.946927177592196,
+          "blind_snr_r": 10.658140842336174,
+          "oracle_snr_r": 10.984055483669653,
+          "blind_reg": 0.06455459288815539,
+          "oracle_reg": 0.14245481944217828
+        },
+        "Band780nm": {
+          "sigma": 0.021324282374292357,
+          "snr_c": 2255.6679485555173,
+          "plain_snr_r": 10.04839380769403,
+          "blind_snr_r": 10.86998115231686,
+          "oracle_snr_r": 11.444883272289864,
+          "blind_reg": 0.06691941666975194,
+          "oracle_reg": 0.14245481944217828
+        }
+      },
+      "scores": {
+        "ndvi": {
+          "pixel_r": 0.6813822285631106,
+          "pixel_rmse": 0.14680737530361646,
+          "block_r": 0.9992882916272091,
+          "block_rmse": 0.0042183251643000885,
+          "vegetated_blocks": 43,
+          "vegetated_found": 1.0,
+          "false_alarms": 0.0
+        },
+        "o2_depth": {
+          "pixel_r": 0.6150191260395548,
+          "pixel_rmse": 0.11726810245618038,
+          "block_r": 0.9987971226610588,
+          "block_rmse": 0.0034305126485010026
+        },
+        "regions_ndvi": {
+          "Congo basin": {
+            "true": 0.21000041013068607,
+            "recovered": 0.2099466449839064
+          },
+          "Sahara": {
+            "true": 0.07543153565327886,
+            "recovered": 0.07578719534336525
+          },
+          "Europe": {
+            "true": 0.23811383392225005,
+            "recovered": 0.23725778966077715
+          }
+        },
+        "disk_o2_depth_measured": 0.6303073505542197,
+        "disk_o2_depth_uncertainty": 1.0263889900660513e-06
+      },
+      "textures": {
+        "ndvi": "bio_ndvi_snr10.png",
+        "o2": "bio_o2_snr10.png",
+        "ndvi_recorded": "bio_ndvi_recorded.png",
+        "o2_recorded": "bio_o2_recorded.png"
+      }
+    },
+    {
+      "name": "snr03",
+      "n": 256,
+      "aperture_m": null,
+      "snr_r": 3,
+      "pitch_m": 5.234176017356967,
+      "aperture_over_pitch": 1.0,
+      "bands": {
+        "Band680nm": {
+          "sigma": 0.06019946142885333,
+          "snr_c": 673.2257350726094,
+          "plain_snr_r": 2.9978715969865437,
+          "blind_snr_r": 3.8524278591848073,
+          "oracle_snr_r": 4.947311650054117,
+          "blind_reg": 0.21936995522402578,
+          "oracle_reg": 1.4245481944217828
+        },
+        "Band764nm": {
+          "sigma": 0.025879640603026888,
+          "snr_c": 687.1183432327854,
+          "plain_snr_r": 3.0202189790953153,
+          "blind_snr_r": 3.8151899418375117,
+          "oracle_snr_r": 4.622499205538438,
+          "blind_reg": 0.20413954695147837,
+          "oracle_reg": 1.4245481944217828
+        },
+        "Band780nm": {
+          "sigma": 0.07125282006948636,
+          "snr_c": 675.0680215987325,
+          "plain_snr_r": 2.988020086253089,
+          "blind_snr_r": 3.856506141524786,
+          "oracle_snr_r": 5.3974273002182995,
+          "blind_reg": 0.21936995522402578,
+          "oracle_reg": 1.4245481944217828
+        }
+      },
+      "scores": {
+        "ndvi": {
+          "pixel_r": 0.38388544734079216,
+          "pixel_rmse": 0.30934394139015525,
+          "block_r": 0.9930537110503548,
+          "block_rmse": 0.01309894843736264,
+          "vegetated_blocks": 43,
+          "vegetated_found": 0.9767441860465116,
+          "false_alarms": 0.001451378809869376
+        },
+        "o2_depth": {
+          "pixel_r": 0.33721164051939717,
+          "pixel_rmse": 0.2141212473875161,
+          "block_r": 0.9869179006085527,
+          "block_rmse": 0.011296974621311705
+        },
+        "regions_ndvi": {
+          "Congo basin": {
+            "true": 0.21000041013068607,
+            "recovered": 0.2101110385085108
+          },
+          "Sahara": {
+            "true": 0.07543153565327886,
+            "recovered": 0.07516092160761985
+          },
+          "Europe": {
+            "true": 0.23811383392225005,
+            "recovered": 0.23420080098240506
+          }
+        },
+        "disk_o2_depth_measured": 0.6303108585000944,
+        "disk_o2_depth_uncertainty": 3.3981390454265973e-06
+      },
+      "textures": {
+        "ndvi": "bio_ndvi_snr03.png",
+        "o2": "bio_o2_snr03.png"
+      }
+    },
+    {
+      "name": "tt_fig4",
+      "n": 128,
+      "aperture_m": 1.0,
+      "snr_r": 4.1,
+      "pitch_m": 10.468352034713934,
+      "aperture_over_pitch": 0.09552601944259383,
+      "bands": {
+        "Band680nm": {
+          "sigma": 0.056824612127119534,
+          "snr_c": 37.75444415019837,
+          "plain_snr_r": 4.125309047035595,
+          "blind_snr_r": 4.664705363721083,
+          "oracle_snr_r": 4.670951569903074,
+          "blind_reg": 0.2158571153126129,
+          "oracle_reg": 0.22376459357062778
+        },
+        "Band764nm": {
+          "sigma": 0.0245707007825063,
+          "snr_c": 38.315364755700074,
+          "plain_snr_r": 4.109236975322169,
+          "blind_snr_r": 4.608519775859391,
+          "oracle_snr_r": 4.6155536402232755,
+          "blind_reg": 0.2082290745268237,
+          "oracle_reg": 0.22376459357062778
+        },
+        "Band780nm": {
+          "sigma": 0.06663416454423413,
+          "snr_c": 38.19688595926137,
+          "plain_snr_r": 4.053812985890957,
+          "blind_snr_r": 4.645959987774506,
+          "oracle_snr_r": 4.6561258396039555,
+          "blind_reg": 0.2158571153126129,
+          "oracle_reg": 0.22376459357062778
+        }
+      },
+      "scores": {
+        "ndvi": {
+          "pixel_r": 0.42561985483291936,
+          "pixel_rmse": 0.24203661154093825,
+          "block_r": 0.9178994948680868,
+          "block_rmse": 0.04452250794938777,
+          "vegetated_blocks": 43,
+          "vegetated_found": 0.8372093023255814,
+          "false_alarms": 0.0
+        },
+        "o2_depth": {
+          "pixel_r": 0.3961012373462925,
+          "pixel_rmse": 0.17939331926250635,
+          "block_r": 0.9101404262522705,
+          "block_rmse": 0.030003020285477872
+        },
+        "regions_ndvi": {
+          "Congo basin": {
+            "true": 0.2130140589278873,
+            "recovered": 0.20850526581127776
+          },
+          "Sahara": {
+            "true": 0.07511346401568479,
+            "recovered": 0.07656318622672542
+          },
+          "Europe": {
+            "true": 0.23794062488678763,
+            "recovered": 0.22595418705026707
+          }
+        },
+        "disk_o2_depth_measured": 0.6300653442645936,
+        "disk_o2_depth_uncertainty": 0.0001216035190946711
+      },
+      "textures": {
+        "ndvi": "bio_ndvi_tt_fig4.png",
+        "o2": "bio_o2_tt_fig4.png"
+      }
+    }
+  ]
+}

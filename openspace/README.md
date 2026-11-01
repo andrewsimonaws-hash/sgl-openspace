@@ -21,11 +21,14 @@ To launch, run this from `C:\Users\andre\OpenSpace\v0.22.0`:
 | `SGL_SunDirection`, `SGL_SunMarker`, `SGL_SunLabel` | Marks the Sun as seen from the image plane. From 650 AU, nothing placed at the Sun itself draws in OpenSpace except lines and orbit trails, so the marker sits 10⁶ km sunward on the focal axis. From near the axis it falls within about 10⁻⁶ rad of the true Sun. |
 | `SGL_ImagePlane` | The image plane at 650 AU, with the camera focus and bounding spheres sized for the 1,340 m image |
 | `SGL_ImageGlow` | Image-plane brightness under the physical PSF, in color: EPIC's 680, 551 and 443 nm bands (on by default) |
-| `SGL_ImageGlowBlue` | The same for the 443 nm band only, as in the thesis. The sample points are colored from this band. (Off by default.) |
 | `SGL_ImageGlowThesis` | The thesis PSF's too-sharp version, for the before/after (off by default) |
 | `SGL_ImageTruth`, `SGL_ImageRecovered` | The EPIC Earth in color, and its band-by-band recovery at SNR ~12 (off by default) |
-| `SGL_Samples` | One point per formation stop inside the disk, colored by the recorded brightness (inferno colormap) |
+| `SGL_Samples` | One point per formation stop inside the disk, in the color recorded there |
+| `SGL_BioNDVITruth`, `…Recorded`, `…Recovered`, `…Mission` | Vegetation (NDVI) over the planet's disk: the planet, the image plane as recorded, recovered at SNR 10, and recovered with 1 m telescopes (off by default) |
+| `SGL_BioO2Truth`, `SGL_BioO2Recovered` | Oxygen A-band depth: the planet and its recovery at SNR 10 (off by default) |
 | `SGL_SC00`–`SGL_SC11` and trails | The 12-craft formation on keyframed bang-coast-bang paths. The mission starts 2075-01-01 and lasts 13.4 days. |
+
+Press **B** to step through the biosignature maps, with a caption for each, and then back to the normal view. In the `sgl_telescope` profile the eyepiece switches to the same false color. The numbers behind the maps are in [`../layer_a/README.md`](../layer_a/README.md#biosignatures-outbiosignatures).
 
 The profile opens paused at the mission start. The camera sits just behind the image plane, slightly off the focal axis, looking back toward the Sun, so the image plane, the formation, the focal line and the Sun are all in view. At a delta time of 3600 (one hour per second), the whole sweep plays in about 5½ minutes.
 
@@ -36,7 +39,9 @@ The profile opens paused at the mission start. The camera sits just behind the i
 - **Line nodes:** `RenderableNodeLine` computes its endpoints in world space, then also applies its own node's transform. Line nodes must therefore hang off `SolarSystemBarycenter`, which has no rotation or offset. Parented to the rotated SGL frame, the focal line came out pointing the wrong way.
 - **Long lines:** the endpoints go to the GPU as 32-bit floats relative to the camera's focus, so one 452 AU line would be drawn up to ~1000 km off near the image plane. The axis is segmented for that reason.
 - **Screenshots:** on a high-DPI display, window captures can miss part of the frame, so use `openspace.takeScreenshot()`.
-- **Image layers:** `RenderablePlaneImageLocal` needs `BlendMode = "Additive"`. Otherwise the texture's black surround is opaque and hides the stars, samples and spacecraft. `Size` is the half-width.
+- **Image layers:** `RenderablePlaneImageLocal` needs `BlendMode = "Additive"`. Otherwise the texture's black surround is opaque and hides the stars, samples and spacecraft. `Size` is the half-width. The biosignature maps instead use `"Normal"` with a transparent surround, sit 1 m toward the camera so they draw over the glow, and hide the far half of the focal line as a solid plane should.
+- **Per-point colors:** `RenderablePointCloud` colors points through a colormap, not per point. The generator quantizes the sample colors to a 256-entry palette (mean error 1.2/255), writes it as `data/sample_colors.cmap` and gives each point its index plus 0.5. The colormap is a 1D texture with nearest filtering, so with `ValueRange = { 0, 256 }` each point lands in the middle of its entry.
+- **Actions:** an action's command runs in the global scope, so the B action has its views and texture paths written into the command string.
 - **Verified in the running app:**
   - The image plane sits 650.0000 AU from the Sun along the intended direction.
   - Looking down the focal line, the texture's orientation matches the sample coordinates.
