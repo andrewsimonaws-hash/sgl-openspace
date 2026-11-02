@@ -52,6 +52,9 @@ FONT_SIZE = 60
 PLANET_FILL = 0.9               # the planet's disk radius as a fraction of its texture's half-width
 CORONA_REACH = 4.0              # the Sun's glow texture spans this many solar radii from the center
 TEXT_BAND = 0.4                # opacity of the dark band behind the caption and the clock
+# OpenSpace's screen text and labels default to its "Mono" font, Bitstream Vera Sans Mono; the
+# diagram's labels use the same file so the overlay matches the captions around it
+FONT_FILE = r"C:\Users\andre\OpenSpace\v0.22.0\data\fonts\Bitstream-Vera-Sans-Mono\VeraMono.ttf"
 
 # The overview's layout in screen-space units (z = -2). The flat frames (hfov 80°, vfov 50.534°)
 # span x within ±2 tan 40° and y within ±2 tan 25.267°.
@@ -403,8 +406,8 @@ def bend_diagram(s):
     d = ImageDraw.Draw(img)
     S = lambda *v: tuple(a * s for a in v)
     W = lambda px: max(1, round(px * s))
-    font = ImageFont.load_default(size=round(20 * s))
-    small = ImageFont.load_default(size=round(17 * s))
+    font = ImageFont.truetype(FONT_FILE, round(20 * s))
+    small = ImageFont.truetype(FONT_FILE, round(17 * s))
     axis_y, sun_x, sun_r = 196, 230, 46
     d.line(S(30, axis_y, w - 30, axis_y), fill=(110, 110, 120, 200), width=W(1))
     # Rays at impact parameter h (pixels) cross the axis at a distance growing as h^2.
@@ -426,7 +429,8 @@ def bend_diagram(s):
     d.ellipse(S(sun_x - sun_r, axis_y - sun_r, sun_x + sun_r, axis_y + sun_r), fill=(255, 205, 100, 255))
     d.text(S(sun_x, axis_y + sun_r + 32), "Sun", fill=(255, 225, 160), font=font, anchor="ma")
     d.text(S(40, 22), "light from the planet", fill=(240, 225, 170), font=font)
-    d.text(S(x548 - 10, axis_y + 40), "focal line starts, 548 AU", fill=(255, 190, 120), font=small, anchor="ra")
+    # Below the lowest rays: the monospaced label is too wide to fit between them
+    d.text(S(x548 - 10, axis_y + 70), "focal line starts, 548 AU", fill=(255, 190, 120), font=small, anchor="ra")
     d.text(S(x650 + 8, axis_y - 98), "image plane, 650 AU", fill=(170, 240, 220), font=small)
     d.text(S(w // 2, h - 30), "Not to scale: the real bend is 1.6 arcseconds (0.00045 degrees)",
            fill=(200, 200, 205), font=small, anchor="ma")
