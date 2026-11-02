@@ -10,12 +10,12 @@ The Sun bends light from a distant planet into a focus that starts 548 AU away. 
 
 It grew out of my senior thesis on autonomy for this mission. Every physical number on screen is checked against published optics or against a second, independent method.
 
-**Clips:** [flat with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) · [dome master with the opening (fisheye, 1024 px), 67 s](media/sgl_telescope_dome.mp4)
+**Clips:** [flat with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) · [dome master with the opening (fisheye, 1024 px), 67 s](media/sgl_telescope_dome.mp4). These are MP4 downloads (28 MB and 10 MB); GitHub doesn't play files this size in the browser.
 
 ## The opening
 
 Both clips start by following the planet's light all the way to the image (about 45 s):
-1. **Overview:** the planet and the Sun, 30 parsecs apart. A side diagram of how the Sun bends light is boxed out from the Sun.
+1. **Overview:** the planet and the Sun, 30 parsecs apart. A box around the Sun opens into a side diagram of how it bends light.
 2. **The planet:** a flight out to an Earth twin 98 light-years away, drawn with the real Earth from DSCOVR EPIC at 1024 px.
 3. **The trip:** a pulse of light leaves the planet and the camera rides with it. The time-lapse is logarithmic, so the distance shrinks by a steady factor each second, and a clock runs from February 1977 to December 2074.
 4. **The bend:** the pulse skims 0.09 solar radii above the Sun's surface, shown at a third of the speed of light.
@@ -67,7 +67,7 @@ Limits:
 | A · physics data | Python. Puts the real DSCOVR EPIC Earth at 30 pc and blurs it with the aperture-averaged SGL PSF from Toth & Turyshev (2021). Outputs textures, measurements, recoveries, biosignature maps and trajectory CSVs. | [`layer_a/`](layer_a) |
 | B · mission scene | Lua assets generated from layer A: focal line, image plane, formation, samples, biosignature maps, and the opening's planet, rays and captions | [`openspace/build_asset.py`](openspace/build_asset.py), [`openspace/sgl/`](openspace/sgl) |
 | C · telescope view | `Sgl` OpenSpace module. `ScreenSpaceSglTelescope` ray-traces each pixel through the lens equation on the GPU and follows a spacecraft node. | [`openspace/module_sgl/`](openspace/module_sgl) |
-| Prototype | The same telescope math in numpy, used as the reference for the GPU | [`layer_c_proto/`](layer_c_proto) |
+| Prototype | The same telescope math in NumPy, used as the reference for the GPU | [`layer_c_proto/`](layer_c_proto) |
 | Thesis rerun | The thesis FBPINN reconstruction under the corrected physics (Colab) | [`colab/`](colab) |
 
 ## How it's checked
@@ -109,7 +109,7 @@ Requires Windows, Visual Studio 2026 (MSVC 19.50), CMake 4.0 or newer, OpenSpace
    ```
 3. **Scene assets:**
    ```bash
-   cd openspace
+   cd ../openspace
    ../.venv/Scripts/python build_asset.py
    ```
 4. **Module:** run `../.venv/Scripts/python install_module.py`, then configure OpenSpace with `-DOPENSPACE_MODULE_SGL=ON` and build. The script also patches one line of OpenSpace so screen-space text keeps a transparent background.
