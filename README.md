@@ -87,9 +87,6 @@ Limits:
 - **Spacecraft paths:** these are analytical bang-coast-bang reference paths, the profile the thesis controllers were trained to imitate. They are not outputs of the trained networks.
 - **Corona:** drawn stylized. The real corona outshines the ring by orders of magnitude.
 - **Colors:** EPIC's 680, 551 and 443 nm bands, scaled for display. The opening's close-up of the planet is also white-balanced on its clouds. The biosignature maps use calibrated reflectance.
-- **Thesis corrections:**
-  - A review of my thesis found that its PSF put 161× too much light in the directly imaged spot. This project uses the published PSF instead.
-  - Rerun under the corrected physics, the thesis FBPINN loses to classical Tikhonov deconvolution, though it still beats a standard PINN. The numbers are in [`colab/`](colab).
 
 ## Run it
 
