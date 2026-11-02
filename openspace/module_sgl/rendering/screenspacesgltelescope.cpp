@@ -1,6 +1,7 @@
 /*****************************************************************************************
  * SGL module: the view from a telescope in the solar gravitational lens image plane.    *
- * Portfolio project, Andrew Simon. Built against OpenSpace v0.22.0 (MIT license).       *
+ * Copyright (c) 2026 Andrew Simon. MIT License; see LICENSE in the sgl-openspace repo.  *
+ * Built against OpenSpace v0.22.0.                                                      *
  ****************************************************************************************/
 
 #include <modules/sgl/rendering/screenspacesgltelescope.h>
@@ -41,7 +42,7 @@ namespace {
         "PlanetTexture",
         "Planet texture",
         "The planet as it appears in the image plane (x right, y up), with the disk "
-        "filling the image. Layer A's truth_rgb.png is this texture.",
+        "filling the image.",
         Property::Visibility::AdvancedUser
     };
 
@@ -65,8 +66,8 @@ namespace {
     constexpr Property::PropertyInfo SunNodeInfo = {
         "SunNode",
         "Sun node",
-        "The scene graph node at the centre of the Sun. The distance from it to the image "
-        "plane sets the Einstein angle and the Sun's apparent size.",
+        "The scene graph node at the centre of the Sun. The distance from it to the "
+        "image plane sets the Einstein angle and the Sun's apparent size.",
         Property::Visibility::AdvancedUser
     };
 
@@ -88,8 +89,8 @@ namespace {
     constexpr Property::PropertyInfo PlanetSizeInfo = {
         "PlanetSize",
         "Planet size",
-        "How much the planet is magnified so it can be seen. The real planet is about three "
-        "millionths of an arcsecond across, far below what any telescope resolves.",
+        "How much the planet is magnified so it can be seen. The real planet is about "
+        "three millionths of an arcsecond across, far below what any telescope resolves.",
         Property::Visibility::User
     };
 
@@ -140,8 +141,8 @@ namespace {
     constexpr Property::PropertyInfo GainInfo = {
         "Gain",
         "Display gain",
-        "Multiplies the planet texture's brightness. The default of 1 shows a "
-        "display-ready texture such as truth_rgb.png as it is; use 2.2 for a linear one.",
+        "Multiplies the planet texture's brightness. The default of 1 shows a texture "
+        "that already carries its display gain as it is.",
         Property::Visibility::AdvancedUser
     };
 
@@ -241,7 +242,9 @@ ScreenSpaceSglTelescope::ScreenSpaceSglTelescope(const ghoul::Dictionary& dictio
     , _imagePlaneNode(ImagePlaneNodeInfo)
     , _sunNode(SunNodeInfo, "SunCenter")
     , _manualOffset(ManualOffsetInfo, glm::vec2(0.f), glm::vec2(-3.f), glm::vec2(3.f))
-    , _telescopeOffset(TelescopeOffsetInfo, glm::vec2(0.f), glm::vec2(-1e6f), glm::vec2(1e6f))
+    , _telescopeOffset(
+        TelescopeOffsetInfo, glm::vec2(0.f), glm::vec2(-1e6f), glm::vec2(1e6f)
+    )
     , _planetSize(PlanetSizeInfo)
     , _magnification(MagnificationInfo, 0.0, 0.0, 1e12)
     , _planetRadius(PlanetRadiusInfo, 6.3781e6, 1.0, 1e10)

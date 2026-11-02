@@ -2,12 +2,12 @@
 
 Three scenarios, all in image-plane metres (origin on the optical axis, x right, y up):
 
-  m0_spiral     one spacecraft probing the thesis M0 acquisition spiral (20 arms x 8 radii)
+  m0_spiral     one spacecraft probing the thesis's acquisition spiral (20 arms x 8 radii)
   raster_single one spacecraft running the Turyshev boustrophedon raster over the disk
   formation12   twelve spacecraft in a rigid vertical line sweeping the disk together
 
 Every hop is a bang-coast-bang transfer: the analytical double-integrator profile the
-thesis policies were trained to imitate (thesis section 2.2), at the "balanced" Pareto
+thesis policies were trained to imitate, at the "balanced" fuel-vs-time Pareto
 setting T = 2.35 T_min. These are reference paths, not outputs of the trained networks.
 Each stop also gets the image-plane color there (EPIC's 680 / 551 / 443 nm bands), read
 from out/textures.
@@ -24,11 +24,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TEX = os.path.join(HERE, "out", "textures")
 OUT = os.path.join(HERE, "out", "trajectories")
 
-THRUST = 6e-5            # m/s^2, the thesis Module 4 value, used for every scenario
-PARETO_STRETCH = 2.35    # T = T_min (1.2 + 2.3 r) at r = 0.5, as in thesis Module 5
+THRUST = 6e-5            # m/s^2, the thesis's thrust, used for every scenario
+PARETO_STRETCH = 2.35    # T = T_min (1.2 + 2.3 r) at r = 0.5, the thesis's balanced preference
 DWELL = 3000.0           # s per stop: ~1 year of integration spread over a 100 x 100 image
 ROW_SPACING = 30.0       # m between raster rows and between stops along a row
-N_AGENTS = 12            # thesis Module 4 constellation size
+N_AGENTS = 12            # the thesis's constellation size
 AGENT_SPACING = 120.0    # m between neighbours in the formation line (thesis safety: 50 m)
 
 
@@ -179,7 +179,7 @@ def main():
     color = ImagePlaneColor(tex)
     scenarios = {}
 
-    # M0: thesis acquisition spiral, 20 arms x 8 radii, ring by ring.
+    # The thesis's acquisition spiral, 20 arms x 8 radii, ring by ring.
     stops = []
     for k in range(8):
         r = (k + 1) / 9 * 0.85 * radius

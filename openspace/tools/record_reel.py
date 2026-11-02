@@ -14,9 +14,14 @@ are all in frame. The camera drifts slowly enough that the Sun stays in view.
     python record_reel.py --dome          # fisheye framing, for a dome master
 """
 import argparse
+import os
+import sys
 import time
 
 from oslua import send
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import paths  # noqa: E402
 
 DURATION = 20.0
 SIZE_SWITCHES = (9.0, 13.0, 17.0)      # seconds into the clip
@@ -89,7 +94,7 @@ def main():
     ap.add_argument("--out")
     args = ap.parse_args()
     mode = "dome" if args.dome else "flat"
-    out = args.out or f"C:/Users/andre/OpenSpace/v0.22.0/user/recordings/sgl_reel_{mode}.osrectxt"
+    out = (args.out or os.path.join(paths.recordings(), f"sgl_reel_{mode}.osrectxt")).replace("\\", "/")
     f = FRAMING[mode]
 
     send(framing_scripts(mode), timeout=60)

@@ -16,12 +16,12 @@ python -m venv ../.venv
 ../.venv/Scripts/python preview.py            # out/preview.png, paths over the image plane
 ```
 
-The ground truth is the DSCOVR EPIC Earth from 13 June 2015, 11:00 UTC (`code/earth access/epic_1b_20150613110250_03.h5`).
+The ground truth is the DSCOVR EPIC Earth from 13 June 2015, 11:00 UTC: the Level 1B granule `epic_1b_20150613110250_03.h5`, which `EPIC_H5` in `make_textures.py` points at.
 - **Every picture is in color** (`*_rgb.png`): the 680, 551 and 443 nm bands run through the pipeline separately, then stack.
   - The averaged PSF doesn't depend on wavelength, so each band blurs identically. Their penalties come out 1.00, 1.02 and 1.03 × 1/√N.
   - Colors use the thesis figure's display: L1B counts normalized by their common maximum, gain 2.2. They aren't radiometrically calibrated.
   - EPIC takes its bands minutes apart, so cloud edges can show slight color fringes.
-- **The 443 nm band alone**, the one the thesis used, still runs for the numbers in the manifest and for `truth.npy` and `image_plane.npy`, which the Colab rerun and layer C's validation read. `code/revised/data/epic_443nm_image.npy` is that band, byte for byte.
+- **The 443 nm band alone**, the one the thesis used, still runs for the numbers in the manifest and for `truth.npy` and `image_plane.npy`, which the Colab rerun and layer C's validation read. The thesis's saved 443 nm array (`EPIC_NPY`) is that band, byte for byte.
 
 ## Physics
 
@@ -79,11 +79,11 @@ The measurement SNR each recovered image needs at 443 nm, 256² (measured penalt
 
 ## Trajectories (`out/trajectories/`)
 
-All positions are in image-plane metres, with the origin on the optical axis, x right and y up. Every hop is a bang-coast-bang transfer, the analytical profile the thesis policies were trained to imitate, at the thesis's "balanced" setting (T = 2.35 T_min). The thrust is 6×10⁻⁵ m/s² (the thesis Module 4 value), and each stop dwells 3,000 s. These are **reference paths, not outputs of the trained networks.**
+All positions are in image-plane metres, with the origin on the optical axis, x right and y up. Every hop is a bang-coast-bang transfer, the analytical profile the thesis policies were trained to imitate, at the thesis's "balanced" setting (T = 2.35 T_min). The thrust is 6×10⁻⁵ m/s² (the thesis's thrust), and each stop dwells 3,000 s. These are **reference paths, not outputs of the trained networks.**
 
 | Scenario | Spacecraft | Samples in disk | Duration | Notes |
 |---|---|---|---|---|
-| `m0_spiral` | 1 | 160 | 15.8 days | Thesis M0 acquisition spiral, 20 arms × 8 radii |
+| `m0_spiral` | 1 | 160 | 15.8 days | The thesis's acquisition spiral, 20 arms × 8 radii |
 | `raster_single` | 1 | 1,569 | 115.1 days | Boustrophedon raster, 30 m spacing |
 | `formation12` | 12 | 1,568 | 13.4 days | Rigid vertical line, 120 m apart, sweeping together. Minimum separation is 120 m (thesis safety distance: 50 m). |
 

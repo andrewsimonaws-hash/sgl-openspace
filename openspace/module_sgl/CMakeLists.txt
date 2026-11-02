@@ -1,5 +1,6 @@
 # Solar gravitational lens (SGL) module: the telescope view from the SGL image plane.
-# Portfolio project, Andrew Simon. Built against OpenSpace v0.22.0.
+# Copyright (c) 2026 Andrew Simon. MIT License; see LICENSE in the sgl-openspace repo.
+# Built against OpenSpace v0.22.0.
 
 include(${PROJECT_SOURCE_DIR}/support/cmake/module_definition.cmake)
 

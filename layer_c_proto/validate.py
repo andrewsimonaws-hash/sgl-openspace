@@ -3,15 +3,16 @@
 1. A point source behind the Sun appears as a ring of radius theta_E = 1.6076" (650 AU).
 2. Integrating the rendered ring gives the light a telescope collects. Across the image plane
    that must follow the layer-A image-plane brightness (built from the wave-optics PSF). If the
-   inversion or a sign were wrong, it would follow a flipped copy instead, so the flipped
+   ray trace or a sign were wrong, it would follow a flipped copy instead, so the flipped
    copies are tested too.
 3. The integrated light doesn't depend on the exaggeration kappa (so drawing the planet big
    doesn't change what the telescope measures).
 
-    python validate.py      # prints the results and writes out/validation.json
+    python validate.py      # prints the results, writes out/validation.json, exits 1 on a failure
 """
 import json
 import os
+import sys
 
 import numpy as np
 
@@ -101,6 +102,21 @@ def main():
 
     with open(os.path.join(OUT, "validation.json"), "w") as f:
         json.dump(results, f, indent=2)
+
+    fit = results["flux_vs_image_plane"]["ratio_spread_percent"]
+    checks = {
+        "ring radius within 0.1% of theta_E":
+            abs(results["ring_radius_arcsec"] / results["theta_E_arcsec"] - 1) < 1e-3,
+        "ring light follows the image plane (r > 0.9999, ratio spread < 1%)":
+            corr["as built"] > 0.9999 and fit["as built"] < 1.0,
+        "flipped and rotated copies fit at least 5x worse":
+            min(v for k, v in fit.items() if k != "as built") > 5 * fit["as built"],
+        "ring light / kappa varies by less than 1%": max(spread) < 1.0,
+    }
+    failed = [name for name, ok in checks.items() if not ok]
+    if failed:
+        sys.exit("FAILED: " + "; ".join(failed))
+    print("all checks passed")
 
 
 if __name__ == "__main__":

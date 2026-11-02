@@ -3,23 +3,27 @@
     python encode_clip.py out.mp4 [--runs 2] [--width 1920] [--crf 20] [--gif preview.gif] [--fps 30]
                           [--gif-width 600] [--gif-step 4]
 
-Takes the newest folder in user/screenshots and, inside it, the last unbroken run of
-frames (a gap of more than 20 s between files separates runs). --runs 2 joins the last two
-runs in order, for the intro exported straight before the reel. --width scales supersampled
-frames down (Lanczos) to the clip's width.
+Takes the newest folder in OpenSpace's user/screenshots (see ../paths.py), or --folder, and
+inside it the last unbroken run of frames (a gap of more than 20 s between files separates
+runs). --runs 2 joins the last two runs in order, for the intro exported straight before the
+reel. --width scales supersampled frames down (Lanczos) to the clip's width.
 """
 import argparse
 import os
+import sys
 
 import imageio.v2 as imageio
 import numpy as np
 from PIL import Image
 
-SHOTS = r"C:\Users\andre\OpenSpace\v0.22.0\user\screenshots"
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import paths  # noqa: E402
 
 
 def latest_runs(n, folder=None):
-    folder = folder or max((os.path.join(SHOTS, d) for d in os.listdir(SHOTS)), key=os.path.getmtime)
+    if folder is None:
+        shots = paths.screenshots()
+        folder = max((os.path.join(shots, d) for d in os.listdir(shots)), key=os.path.getmtime)
     files = sorted(f for f in os.listdir(folder) if f.endswith(".png"))
     times = [os.path.getmtime(os.path.join(folder, f)) for f in files]
     start, runs = len(files) - 1, 0

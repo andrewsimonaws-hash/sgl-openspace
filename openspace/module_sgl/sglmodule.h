@@ -1,6 +1,7 @@
 /*****************************************************************************************
  * SGL module: the view from a telescope in the solar gravitational lens image plane.    *
- * Portfolio project, Andrew Simon. Built against OpenSpace v0.22.0 (MIT license).       *
+ * Copyright (c) 2026 Andrew Simon. MIT License; see LICENSE in the sgl-openspace repo.  *
+ * Built against OpenSpace v0.22.0.                                                      *
  ****************************************************************************************/
 
 #ifndef __OPENSPACE_MODULE_SGL___SGLMODULE___H__

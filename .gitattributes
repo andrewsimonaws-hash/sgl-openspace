@@ -1,0 +1,9 @@
+# OpenSpace assets are Lua, as in OpenSpace's own .gitattributes; profiles are JSON
+*.asset linguist-language=Lua
+*.profile linguist-language=JSON
+
+# The 1.8 MB formation asset and the data outputs are generated: keep them out of the
+# language bar and collapsed in diffs
+openspace/sgl/sgl_formation.asset linguist-generated
+layer_a/out/** linguist-generated
+colab/fbpinn_corrected_psf_results/** linguist-generated

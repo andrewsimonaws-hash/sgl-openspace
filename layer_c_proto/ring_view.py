@@ -1,8 +1,9 @@
 """Layer C prototype: what a telescope in the SGL image plane sees when it looks back at the Sun.
 
-This is the per-pixel math the OpenSpace C++/GLSL telescope view will run, written in numpy
-first so it can be checked. For each sky direction theta (angle from the Sun's centre, as seen
-by the telescope) the point-mass lens equation gives where that ray came from:
+This is the per-pixel math the OpenSpace C++/GLSL telescope view runs (ported to
+openspace/module_sgl/shaders/telescope_fs.glsl), written in NumPy first so it could be
+checked. For each sky direction theta (angle from the Sun's centre, as seen by the
+telescope) the point-mass lens equation gives where that ray came from:
 
     beta = theta - theta_E^2 * theta / |theta|^2,      theta_E = sqrt(2 r_g / z)
 

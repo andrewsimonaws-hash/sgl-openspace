@@ -1,12 +1,12 @@
 # Layer B: the SGL scene in OpenSpace
 
-Lua assets that place the solar gravitational lens mission in OpenSpace 0.22, built from the layer-A data. `build_asset.py` writes everything into `sgl/` and installs it into `C:\Users\andre\OpenSpace\v0.22.0\user\data\assets\sgl`. It also installs the `sgl` profile into `user\data\profiles`.
+Lua assets that place the solar gravitational lens mission in OpenSpace 0.22, built from the layer-A data. `build_asset.py` writes everything into `sgl/`, then installs that folder into `user/data/assets/sgl` and the profiles into `user/data/profiles` of the OpenSpace in `OPENSPACE_ROOT` (see [`paths.py`](paths.py); `--no-install` skips the copy). It needs `OPENSPACE_ROOT` either way, for OpenSpace's own font in the overview diagram.
 
 ```bash
 ../.venv/Scripts/python build_asset.py
 ```
 
-To launch, run this from `C:\Users\andre\OpenSpace\v0.22.0`:
+To launch, run this from your OpenSpace folder:
 
 ```bash
 ./bin/OpenSpace.exe --profile sgl --bypassLauncher
@@ -28,7 +28,7 @@ To launch, run this from `C:\Users\andre\OpenSpace\v0.22.0`:
 | `SGL_BioO2Truth`, `SGL_BioO2Recovered` | Oxygen A-band depth: the planet and its recovery at SNR 10 (off by default) |
 | `SGL_SC00`–`SGL_SC11` and trails | The 12-craft formation on keyframed bang-coast-bang paths. The mission starts 2075-01-01 and lasts 13.4 days. |
 
-Press **B** to step through the biosignature maps, with a caption for each, and then back to the normal view. In the `sgl_telescope` profile the eyepiece switches to the same false color. The numbers behind the maps are in [`../layer_a/README.md`](../layer_a/README.md#biosignatures-outbiosignatures).
+Press **N** to step through the biosignature maps, with a caption for each, and then back to the normal view. In the `sgl_telescope` profile the eyepiece switches to the same false color. The numbers behind the maps are in [`../layer_a/README.md`](../layer_a/README.md#biosignatures-outbiosignatures).
 
 **The opening** (`sgl_intro.asset`, loaded by the `sgl_telescope` profile, all hidden until its recording plays):
 
@@ -54,7 +54,8 @@ The profile opens paused at the mission start. The camera sits just behind the i
 - **Screenshots:** on a high-DPI display, window captures can miss part of the frame, so use `openspace.takeScreenshot()`.
 - **Image layers:** `RenderablePlaneImageLocal` needs `BlendMode = "Additive"`. Otherwise the texture's black surround is opaque and hides the stars, samples and spacecraft. `Size` is the half-width. The biosignature maps instead use `"Normal"` with a transparent surround, sit 1 m toward the camera so they draw over the glow, and hide the far half of the focal line as a solid plane should.
 - **Per-point colors:** `RenderablePointCloud` colors points through a colormap, not per point. The generator quantizes the sample colors to a 256-entry palette (mean error 1.2/255), writes it as `data/sample_colors.cmap` and gives each point its index plus 0.5. The colormap is a 1D texture with nearest filtering, so with `ValueRange = { 0, 256 }` each point lands in the middle of its entry.
-- **Actions:** an action's command runs in the global scope, so the B action has its views and texture paths written into the command string.
+- **Actions:** an action's command runs in the global scope, so the N action has its views and texture paths written into the command string.
+- **Keys:** `openspace.bindKey` adds to a key's existing bindings instead of replacing them, and `clearKey` removes them all. B is the default fade to black, so a toggle on B would fade the scene too and unbind the fade when the asset unloads. The biosignature toggle uses N, which the default keybindings leave free.
 - **Dataset cache:** OpenSpace caches parsed point-cloud CSVs under `cache/` and didn't notice when the samples file gained a column. The color mapping quietly fell back to one color. After changing a CSV's columns, delete its folder in the cache.
 - **Writing a recording by hand** (what `make_intro.py` does):
   - **Camera lines:** each is `camera <time> <sim time> <x y z> <w x y z> <scale> F <anchor>`. `F` puts position and rotation in the anchor's own frame, and the camera looks down its −z. `scale` is 50 divided by the distance to what the camera looks at, as the orbital navigator sets it; computed from the anchor distance instead, it can push nearby objects inside the near plane.
@@ -71,7 +72,7 @@ The profile opens paused at the mission start. The camera sits just behind the i
   - **MSAA:** with `"msaa": 4` in the window config, OpenSpace's frame capture came out black. Instead the flat clip renders at 3840×2160 (`"res"` in the window config, independent of the window's size) and is scaled to 1080p when encoded.
   - **Line widths:** these are in framebuffer pixels, so `export_frames.py --line-scale 2` doubles every line and trail for the run, and the `MinMaxSize` pixel clamp on labels too.
   - **Text:** `ScreenSpaceText` draws at `FontSize` (15 by default) and then stretches to its `Scale`, so the captions set `FontSize = 60` to stay sharp. Screen text and labels default to OpenSpace's `Mono` font (Bitstream Vera Sans Mono), so the overview's diagram, a PNG drawn in Python, loads that same font file for its labels.
-  - **Text boxes:** OpenSpace 0.22 draws `ScreenSpaceText` into an RGB texture with no alpha, so each caption sits on an opaque black box. It's invisible against space, but it shows over the Earth or the Sun. `install_module.py` patches the texture to RGBA. The caption and the clock then get a 40% `BackgroundColor` band, so white text stays legible over clouds and the Sun.
+  - **Text boxes:** OpenSpace 0.22 draws `ScreenSpaceText` into an RGB texture with no alpha, so each caption sits on an opaque black box. It's invisible against space, but it shows over the Earth or the Sun. `install_module.py --backport-text-alpha` patches the texture to RGBA, as OpenSpace's master branch already does. The caption and the clock then get a 40% `BackgroundColor` band, so white text stays legible over clouds and the Sun.
   - **Config path:** `${CONFIG}` resolves to the source build's `config` folder.
 - **Fisheye framing:** SGCT rotates the cube map by 90° − `tilt`, so with `"tilt": 90` the camera's forward direction is the center of the dome master and its up is the top. Angle from forward maps linearly to radius (90° at the rim). The dome reel looks across the focal axis from 2 km off it, so the image plane and the Sun land about 62° either side of center.
 - **Trail widths:** a trail's width is `Renderable.Appearance.LineWidth`, and planet orbits default to 10 px. The profiles set them to 6 px at 0.8 opacity, and the spacecraft trails are 1.5 px at 0.8.

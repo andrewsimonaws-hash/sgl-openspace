@@ -1,4 +1,4 @@
-"""Render the telescope-view options for review (layer C prototype).
+"""Render the telescope view's reference images and design study (layer C prototype).
 
     python render_options.py [openspace_screenshot.png]
 

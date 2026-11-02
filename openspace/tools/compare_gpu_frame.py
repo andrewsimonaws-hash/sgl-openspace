@@ -12,10 +12,12 @@ gain). Saved textures come out bottom-up, so the GPU frame is flipped before com
 
 A correlation alone is a weak check, so this also prints the mean difference on the ring, the
 share of pixels off by more than 16 and 32 levels, and the correlation of mirrored and rotated
-copies of the GPU frame, which should score far lower if the orientation is right.
+copies of the GPU frame, which should score far lower if the orientation is right. It exits 1
+if r falls below MIN_R or either copy scores above MAX_CONTROL_R.
 """
 import argparse
 import os
+import sys
 import time
 
 import numpy as np
@@ -26,6 +28,8 @@ PORTFOLIO = os.path.normpath(os.path.join(HERE, "..", ".."))
 REFERENCE = os.path.join(PORTFOLIO, "layer_c_proto", "out", "visuals", "c_occulter.png")
 GPU_FRAME = os.path.join(PORTFOLIO, "layer_c_proto", "out", "gpu_frame_c_occulter.png")
 P = "ScreenSpace.SGL_Telescope."
+MIN_R = 0.998               # the committed frame scores 0.9992
+MAX_CONTROL_R = 0.8         # its mirrored and rotated copies score about 0.66
 
 
 def capture(path):
@@ -69,8 +73,13 @@ def main():
     print(f"correlation r = {r:.4f}")
     print(f"mean |difference|: {diff.mean():.2f}/255 overall, {diff[ring].mean():.2f}/255 on the ring")
     print(f"pixels off by more than 16/255: {100 * (worst > 16).mean():.3f}%, more than 32/255: {100 * (worst > 32).mean():.3f}%")
+    controls = {}
     for name, g in {"mirrored left-right": gpu[:, ::-1], "rotated 180 degrees": gpu[::-1, ::-1]}.items():
-        print(f"orientation check, {name}: r = {np.corrcoef(g.ravel(), ref.ravel())[0, 1]:.4f}")
+        controls[name] = np.corrcoef(g.ravel(), ref.ravel())[0, 1]
+        print(f"orientation check, {name}: r = {controls[name]:.4f}")
+    if r < MIN_R or max(controls.values()) > MAX_CONTROL_R:
+        sys.exit(f"FAILED: need r >= {MIN_R} and both orientation checks below {MAX_CONTROL_R}")
+    print("passed")
 
 
 if __name__ == "__main__":

@@ -25,9 +25,9 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 import intro as I                                    # noqa: E402
+import paths                                         # noqa: E402
 from record_reel import FRAMING, LABEL, P, SUN_LABEL  # noqa: E402
 
-RECORDINGS = "C:/Users/andre/OpenSpace/v0.22.0/user/recordings"
 TEXTURES_MANIFEST = os.path.join(HERE, "..", "..", "layer_a", "out", "textures", "manifest.json")
 FPS = 30
 BEATS = {"overview": 6.5, "fly": 9.0, "travel": 11.0, "bend": 7.5, "converge": 7.0, "arrive": 4.0}
@@ -540,8 +540,8 @@ def main():
     ap.add_argument("--reel")
     args = ap.parse_args()
     mode = "dome" if args.dome else "flat"
-    out = args.out or f"{RECORDINGS}/sgl_intro_{mode}.osrectxt"
-    reel = args.reel or f"{RECORDINGS}/sgl_reel_{mode}.osrectxt"
+    out = args.out or os.path.join(paths.recordings(), f"sgl_intro_{mode}.osrectxt")
+    reel = args.reel or os.path.join(paths.recordings(), f"sgl_reel_{mode}.osrectxt")
     frames, marks, info = build(reel, LAYOUT[mode])
     write(out, frames, marks, events_for(frames, marks, mode), info, LAYOUT[mode])
     left = date_text(info["et_emit"], info["et_arrive"], "%B %Y")

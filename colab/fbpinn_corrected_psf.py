@@ -29,7 +29,7 @@
 # comparison stays fair.
 #
 # **To run:** Runtime → Change runtime type → GPU. Upload
-# `portfolio/layer_a/out/textures/truth.npy` when asked, then Runtime → Run all.
+# `layer_a/out/textures/truth.npy` when asked, then Runtime → Run all.
 # Set `QUICK = True` first for a few-minute check. A full run is 72 training runs of
 # 2,000 steps; a rough estimate is 15–25 min on an A100, 25–40 on an L4 and about an
 # hour on a T4. At the end it downloads `fbpinn_corrected_psf_results.zip`.
@@ -72,7 +72,7 @@ if jax.devices()[0].platform == "cpu" and not QUICK:
 TRUTH = os.environ.get("TRUTH_NPY", "truth.npy")
 if not os.path.exists(TRUTH):
     from google.colab import files
-    files.upload()                       # choose portfolio/layer_a/out/textures/truth.npy
+    files.upload()                       # choose layer_a/out/textures/truth.npy
 truth_src = np.load(TRUTH).astype(np.float64)
 f = truth_src.shape[0] // N
 truth = truth_src.reshape(N, f, N, f).mean(axis=(1, 3)) if f > 1 else truth_src

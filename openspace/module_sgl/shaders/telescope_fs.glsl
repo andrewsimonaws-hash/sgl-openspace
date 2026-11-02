@@ -1,11 +1,12 @@
 /*****************************************************************************************
  * SGL module: the view from a telescope in the solar gravitational lens image plane.    *
- * Portfolio project, Andrew Simon. Built against OpenSpace v0.22.0 (MIT license).       *
+ * Copyright (c) 2026 Andrew Simon. MIT License; see LICENSE in the sgl-openspace repo.  *
+ * Built against OpenSpace v0.22.0.                                                      *
  ****************************************************************************************/
 
 #version __CONTEXT__
 
-// Port of portfolio/layer_c_proto/ring_view.py (lensed_planet + render). All angles are
+// Port of layer_c_proto/ring_view.py (lensed_planet + render). All angles are
 // in units of the Einstein angle theta_E, so values stay near 1.
 
 in vec2 vs_st;
@@ -71,7 +72,8 @@ void main() {
 
   if (eyepiece) {
     float rim = smoothstep(0.975, 0.985, radius);
-    bool tick = (abs(p.x) < 0.004 && abs(p.y) > 0.88) || (abs(p.y) < 0.004 && abs(p.x) > 0.88);
+    bool tick = (abs(p.x) < 0.004 && abs(p.y) > 0.88) ||
+                (abs(p.y) < 0.004 && abs(p.x) > 0.88);
     if (tick) {
       color = RimColor;
     }

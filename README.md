@@ -12,6 +12,14 @@ It grew out of my senior thesis on autonomy for this mission. Every physical num
 
 **Clips:** [flat with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) · [dome master with the opening (fisheye, 1024 px), 67 s](media/sgl_telescope_dome.mp4). These are MP4 downloads (28 MB and 10 MB); GitHub doesn't play files this size in the browser.
 
+**Where to look:**
+- [`screenspacesgltelescope.cpp`](openspace/module_sgl/rendering/screenspacesgltelescope.cpp) and [`telescope_fs.glsl`](openspace/module_sgl/shaders/telescope_fs.glsl): the OpenSpace module that ray-traces the Einstein ring on the GPU
+- [`build_asset.py`](openspace/build_asset.py): turns the data into the Lua assets and profiles
+- [`make_intro.py`](openspace/tools/make_intro.py): writes the opening's session recording, one camera keyframe per frame
+- [`sgl_psf.py`](layer_a/sgl_psf.py): the lens's point-spread function, from Toth & Turyshev (2021)
+- [`compare_gpu_frame.py`](openspace/tools/compare_gpu_frame.py) and [`layer_c_proto/`](layer_c_proto): the GPU view checked against an independent NumPy version
+- [`openspace/README.md`](openspace/README.md): the scene node by node, and what I learned about OpenSpace 0.22 building it
+
 ## The opening
 
 Both clips start by following the planet's light all the way to the image (about 45 s):
@@ -31,7 +39,7 @@ The rays are true geometry. They pass the Sun at the Einstein radius for 650 AU 
 - **The formation:** twelve spacecraft fly a rigid line 120 m apart, sampling the image on bang-coast-bang transfers. The sweep takes 13.4 days, against 115 for a single spacecraft.
 - **Sample points:** each in the color recorded at its stop.
 - **The eyepiece:** spacecraft 6's telescope looking back at the Sun. Inside the planet's image it sees a full Einstein ring at 1.61″; outside, two arcs. Press **M** to step the planet's magnification (×22,600 / ×56,600 / ×135,700). The real planet is about three millionths of an arcsecond across, so it has to be enlarged to be seen at all, and the label says by how much.
-- **Biosignatures:** press **B** to step through vegetation and oxygen maps on the planet's disk: the planet itself, what the telescopes record, and recoveries. The eyepiece switches to the same false color.
+- **Biosignatures:** press **N** to step through vegetation and oxygen maps on the planet's disk: the planet itself, what the telescopes record, and recoveries. The eyepiece switches to the same false color.
 
 ## Biosignatures
 
@@ -90,35 +98,47 @@ Limits:
 
 ## Run it
 
-Requires Windows, Visual Studio 2026 (MSVC 19.50), CMake 4.0 or newer, OpenSpace v0.22.0 source, and Python 3.11 or newer.
+Tested on Windows 11 with OpenSpace v0.22.0 (Visual Studio 2026, MSVC 19.50, CMake 4) and Python 3.11 or newer. The generated scene (`openspace/sgl/`) and the layer-A outputs (`layer_a/out/`) are committed, so each step below can start from them.
 
+**Open the scene, no build needed.** In an OpenSpace 0.22 install, copy `openspace/sgl/` to `user/data/assets/sgl/` and `openspace/sgl/sgl.profile` to `user/data/profiles/`, then run:
+```bash
+bin/OpenSpace --profile sgl --bypassLauncher
+```
+This loads the mission scene. The eyepiece and the opening come with the `sgl_telescope` profile, which needs the module.
+
+**Paths.** The scripts that touch OpenSpace read `OPENSPACE_ROOT`, the OpenSpace folder you run (the one with `openspace.cfg`). If its user folder lives elsewhere, set `OPENSPACE_USER` too, for the scripts and for OpenSpace, whose `openspace.cfg` reads the same variable. `install_module.py` reads `OPENSPACE_SRC`, the source tree. See [`openspace/paths.py`](openspace/paths.py).
+
+**Build the module, for the eyepiece and the opening:**
+1. From `openspace/`, run `python install_module.py` (add `--backport-text-alpha` to give 0.22's screen-space text a transparent background, as OpenSpace's master branch already does), then configure and build OpenSpace.
+2. Copy `openspace/sgl/` to the build's `user/data/assets/sgl/`, and both `sgl.profile` and `sgl_telescope.profile` to its `user/data/profiles/`. Running `build_asset.py` with `OPENSPACE_ROOT` set to the source tree does the same.
+3. Launch the build with the telescope profile:
+   ```bash
+   bin/RelWithDebInfo/OpenSpace --profile sgl_telescope --bypassLauncher
+   ```
+
+**Regenerate the data and scene:**
 1. **Python environment:**
    ```bash
    python -m venv .venv
    .venv/Scripts/python -m pip install -r requirements.txt
    ```
-2. **Layer A data:**
+2. **Layer A data:** the scripts read the DSCOVR EPIC Level 1B granule `epic_1b_20150613110250_03.h5` (13 June 2015, 11:00 UTC; from NASA Earthdata, e.g. with `earthaccess`). Point `EPIC_H5` in `make_textures.py` at your copy, and `EPIC_NPY` at its 443 nm band saved as a NumPy array.
    ```bash
    cd layer_a
    ../.venv/Scripts/python make_textures.py
    ../.venv/Scripts/python make_trajectories.py
    ../.venv/Scripts/python make_biosignatures.py
    ```
-3. **Scene assets:**
+3. **Scene assets:** writes `openspace/sgl/`, then installs it and the profiles into `OPENSPACE_ROOT` (skip that with `--no-install`). It needs `OPENSPACE_ROOT` either way, because the overview diagram is drawn in OpenSpace's own font.
    ```bash
    cd ../openspace
    ../.venv/Scripts/python build_asset.py
    ```
-4. **Module:** run `../.venv/Scripts/python install_module.py`, then configure OpenSpace with `-DOPENSPACE_MODULE_SGL=ON` and build. The script also patches one line of OpenSpace so screen-space text keeps a transparent background.
-5. **Launch:**
-   ```bash
-   bin/RelWithDebInfo/OpenSpace.exe --profile sgl_telescope --bypassLauncher
-   ```
-6. **Reel:** with OpenSpace running, use `openspace/tools/record_reel.py [--dome]`, then `export_frames.py <recording> 30`, then `encode_clip.py out.mp4`.
-7. **Opening:** `make_intro.py [--dome]` writes the opening's recording, ending on the reel's first view. Export it straight before the reel, in the same session, then join the two with `encode_clip.py out.mp4 --runs 2`. On the dome the overview is drawn larger and each caption is split over two lines.
-8. **Sharper frames:** the flat clip is rendered at 3840×2160 (a window config with `"res": { "x": 3840, "y": 2160 }`) and exported with `--line-scale 2`, since line widths are in framebuffer pixels. `encode_clip.py --width 1920` then scales it to 1080p, which antialiases every line, edge and letter. The dome master is rendered the same way at 2048×2048 (fisheye `"quality": "2k"`) and encoded with `--width 1024`.
 
-The scripts assume my local paths in a few places (`OPENSPACE_ASSETS` in `build_asset.py`, `DST` in `install_module.py`, the recordings folder). Change them for your machine.
+**Record the clips:**
+1. **Reel:** with OpenSpace running, use `openspace/tools/record_reel.py [--dome]`, then `export_frames.py <recording> 30`, then `encode_clip.py out.mp4`.
+2. **Opening:** `make_intro.py [--dome]` writes the opening's recording, ending on the reel's first view. Export it straight before the reel, in the same session, then join the two with `encode_clip.py out.mp4 --runs 2`. On the dome the overview is drawn larger and each caption is split over two lines.
+3. **Sharper frames:** the flat clip is rendered at 3840×2160 (a window config with `"res": { "x": 3840, "y": 2160 }`) and exported with `--line-scale 2`, since line widths are in framebuffer pixels. `encode_clip.py --width 1920` then scales it to 1080p, which antialiases every line, edge and letter. The dome master is rendered the same way at 2048×2048 (fisheye `"quality": "2k"`) and encoded with `--width 1024`.
 
 ## Layout
 
@@ -128,6 +148,7 @@ layer_c_proto/    telescope-view prototype, validation, option renders (Python)
 openspace/
   build_asset.py  generates the Lua assets and profiles
   intro.py        the opening: geometry, asset and bending diagram
+  paths.py        where the local OpenSpace is (environment variables)
   sgl/            generated assets, textures, data
   module_sgl/     the Sgl C++ module and shaders
   tools/          Lua-over-TCP control, recording, frame export, encoding
