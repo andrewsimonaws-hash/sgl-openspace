@@ -14,11 +14,11 @@ It grew out of my senior thesis on autonomy for this mission. Every physical num
 
 
 
+https://github.com/user-attachments/assets/732e41cf-19a8-474a-84d9-c4bb8dce48c2
 
 
 
-
-https://github.com/user-attachments/assets/9f7f4cd0-8037-49d3-9253-bd95da0a67ba
+https://github.com/user-attachments/assets/00e6e1fb-a3fc-4a25-9cff-1e5cd5e4fb4f
 
 
 
