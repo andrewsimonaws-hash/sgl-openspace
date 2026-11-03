@@ -68,10 +68,9 @@ DEPTH_STOPS = [(0.35, (250, 245, 215)), (0.55, (120, 190, 200)), (0.75, (40, 90,
 
 def load(n):
     """Reflectance per band, the disk mask and region masks on the n x n grid."""
-    import h5py
     box = T.epic_box()
     mask = T.disk_mask(n)
-    with h5py.File(T.EPIC_H5, "r") as f:
+    with T.open_epic() as f:
         refl = {b: k * T.resample(T.thesis_orientation(np.array(f[b]["Image"])), n, box, mask)
                 for b, k in CAL.items()}
         geo = f["Band780nm"]["Geolocation"]["Earth"]

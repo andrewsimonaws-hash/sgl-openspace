@@ -76,7 +76,7 @@ Limits:
 | B · mission scene | Lua assets generated from layer A: focal line, image plane, formation, samples, biosignature maps, and the opening's planet, rays and captions | [`openspace/build_asset.py`](openspace/build_asset.py), [`openspace/sgl/`](openspace/sgl) |
 | C · telescope view | `Sgl` OpenSpace module. `ScreenSpaceSglTelescope` ray-traces each pixel through the lens equation on the GPU and follows a spacecraft node. | [`openspace/module_sgl/`](openspace/module_sgl) |
 | Prototype | The same telescope math in NumPy, used as the reference for the GPU | [`layer_c_proto/`](layer_c_proto) |
-| Thesis rerun | The thesis FBPINN reconstruction under the corrected physics (Colab) | [`colab/`](colab) |
+| Reconstruction rerun | My thesis's reconstruction network (a finite-basis physics-informed neural network, FBPINN) rerun under the physical blur and compared with classical methods (Colab) | [`colab/`](colab) |
 
 ## How it's checked
 
@@ -122,14 +122,14 @@ This loads the mission scene. The eyepiece and the opening come with the `sgl_te
    python -m venv .venv
    .venv/Scripts/python -m pip install -r requirements.txt
    ```
-2. **Layer A data:** the scripts read the DSCOVR EPIC Level 1B granule `epic_1b_20150613110250_03.h5` (13 June 2015, 11:00 UTC; from NASA Earthdata, e.g. with `earthaccess`). Point `EPIC_H5` in `make_textures.py` at your copy, and `EPIC_NPY` at its 443 nm band saved as a NumPy array.
+2. **Layer A data:** the scripts read one input, the DSCOVR EPIC Level 1B granule from 13 June 2015. [`layer_a/README.md`](layer_a/README.md#run-it) links it (free NASA Earthdata login); save it in `layer_a/data/` or set `EPIC_H5`.
    ```bash
    cd layer_a
    ../.venv/Scripts/python make_textures.py
    ../.venv/Scripts/python make_trajectories.py
    ../.venv/Scripts/python make_biosignatures.py
    ```
-3. **Scene assets:** writes `openspace/sgl/`, then installs it and the profiles into `OPENSPACE_ROOT` (skip that with `--no-install`). It needs `OPENSPACE_ROOT` either way, because the overview diagram is drawn in OpenSpace's own font.
+3. **Scene assets:** writes `openspace/sgl/`, then installs it and the profiles into `OPENSPACE_ROOT` (skip that with `--no-install`). It needs `OPENSPACE_ROOT` either way, because the overview diagram is drawn in OpenSpace's own font. Without the EPIC granule it keeps the committed close-up of the planet and rebuilds everything else.
    ```bash
    cd ../openspace
    ../.venv/Scripts/python build_asset.py
@@ -152,7 +152,7 @@ openspace/
   sgl/            generated assets, textures, data
   module_sgl/     the Sgl C++ module and shaders
   tools/          Lua-over-TCP control, recording, frame export, encoding
-colab/            FBPINN rerun notebook and results
+colab/            reconstruction rerun: Colab notebook and results
 media/            clips and preview
 ```
 
@@ -161,6 +161,6 @@ media/            clips and preview
 - V. T. Toth and S. G. Turyshev, *Image recovery with the solar gravitational lens*, Phys. Rev. D 103, 124038 (2021), [arXiv:2012.05477](https://arxiv.org/abs/2012.05477)
 - S. G. Turyshev and V. T. Toth, *Image formation for extended sources with the solar gravitational lens*, Phys. Rev. D 102, 024038 (2020)
 - OpenSpace, AMNH, Linköping University, NYU and University of Utah SCI, [openspaceproject.com](https://www.openspaceproject.com)
-- DSCOVR EPIC Level 1B, 13 June 2015, NASA, via `earthaccess`
+- DSCOVR EPIC Level 1B version 3, 13 June 2015, NASA Langley Atmospheric Science Data Center (granule `epic_1b_20150613110250_03.h5`)
 
 *Andrew Simon · Princeton MAE '26 · Code under the [MIT License](LICENSE). DSCOVR EPIC imagery courtesy of NASA.*

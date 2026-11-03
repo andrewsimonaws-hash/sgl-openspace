@@ -19,6 +19,7 @@
 #include <openspace/properties/vector/vec2property.h>
 #include <ghoul/opengl/ghoul_gl.h>
 #include <memory>
+#include <string>
 
 namespace ghoul::opengl {
     class FramebufferObject;
@@ -83,7 +84,10 @@ private:
     float _sunRadius = 0.918f;
     bool _framebufferIsDirty = true;
     bool _textureIsDirty = true;
+    bool _viewIsDirty = true;
     bool _shouldSaveFrame = false;
+    // The node names last reported missing, so each problem is logged once
+    std::string _missingNodes;
 
     std::unique_ptr<ghoul::opengl::Texture> _planetTexture;
     std::unique_ptr<ghoul::opengl::FramebufferObject> _framebuffer;

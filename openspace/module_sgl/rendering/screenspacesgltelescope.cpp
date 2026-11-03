@@ -364,12 +364,44 @@ void ScreenSpaceSglTelescope::update() {
         _textureIsDirty = false;
     }
 
+    // A fisheye or other multi-viewport window calls render() once per viewport, but the
+    // view only changes between frames, so it is ray-traced once per update()
+    _viewIsDirty = true;
+
     Scene* scene = global::renderEngine->scene();
     if (!scene) {
         return;
     }
     const SceneGraphNode* plane = scene->sceneGraphNode(_imagePlaneNode.value());
     const SceneGraphNode* sun = scene->sceneGraphNode(_sunNode.value());
+    const SceneGraphNode* telescope = _telescopeNode.value().empty() ?
+        nullptr :
+        scene->sceneGraphNode(_telescopeNode.value());
+
+    // Say once which named node is missing, instead of silently showing a stale view
+    std::string missing;
+    const auto report = [&missing](const std::string& entry) {
+        missing += missing.empty() ? entry : ", " + entry;
+    };
+    if (!plane) {
+        report(std::format("ImagePlaneNode '{}'", _imagePlaneNode.value()));
+    }
+    if (!sun) {
+        report(std::format("SunNode '{}'", _sunNode.value()));
+    }
+    if (!telescope && !_telescopeNode.value().empty()) {
+        report(std::format(
+            "TelescopeNode '{}'{}",
+            _telescopeNode.value(),
+            (plane && sun) ? " (using ManualOffset)" : ""
+        ));
+    }
+    if (missing != _missingNodes) {
+        if (!missing.empty()) {
+            LWARNING(std::format("Scene graph node(s) not found: {}", missing));
+        }
+        _missingNodes = missing;
+    }
     if (!plane || !sun) {
         return;
     }
@@ -383,14 +415,11 @@ void ScreenSpaceSglTelescope::update() {
     const double imageRadius = _planetRadius * z / _targetDistance;
 
     glm::vec2 offset = _manualOffset;
-    if (!_telescopeNode.value().empty()) {
-        const SceneGraphNode* telescope = scene->sceneGraphNode(_telescopeNode.value());
-        if (telescope) {
-            // Into the image plane's own frame: x and y span the plane
-            const glm::dvec3 local = glm::transpose(plane->worldRotationMatrix()) *
-                (telescope->worldPosition() - planePosition);
-            offset = glm::vec2(local.x / imageRadius, local.y / imageRadius);
-        }
+    if (telescope) {
+        // Into the image plane's own frame: x and y span the plane
+        const glm::dvec3 local = glm::transpose(plane->worldRotationMatrix()) *
+            (telescope->worldPosition() - planePosition);
+        offset = glm::vec2(local.x / imageRadius, local.y / imageRadius);
     }
     _telescopeOffset = offset;
 
@@ -404,9 +433,12 @@ void ScreenSpaceSglTelescope::render(const RenderData& renderData) {
     }
     if (_framebufferIsDirty) {
         createFramebuffer();
+        _viewIsDirty = true;
     }
-
-    renderView();
+    if (_viewIsDirty) {
+        renderView();
+        _viewIsDirty = false;
+    }
 
     if (_shouldSaveFrame) {
         saveFrame();

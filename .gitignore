@@ -5,3 +5,6 @@ __pycache__/
 
 # The results folder is committed; this zip duplicates it
 colab/fbpinn_corrected_psf_results.zip
+
+# The EPIC input granule (426 MB), downloaded per layer_a/README.md
+layer_a/data/

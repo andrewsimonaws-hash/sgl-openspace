@@ -6,6 +6,8 @@ This layer replaces the thesis PSF with the physical one. The thesis put 65% of 
 
 ## Run it
 
+The outputs in `out/` are committed, so this is only needed to regenerate them. `make_textures.py` and `make_biosignatures.py` read one input, the DSCOVR EPIC Level 1B granule [`epic_1b_20150613110250_03.h5`](https://data.asdc.earthdata.nasa.gov/asdc-prod-protected/DSCOVR/DSCOVR_EPIC_L1B_3/2015.06/epic_1b_20150613110250_03.h5) (version 3, 426 MB). Download it with a free NASA Earthdata login into `layer_a/data/`, which git ignores, or set `EPIC_H5` to its path.
+
 ```bash
 python -m venv ../.venv
 ../.venv/Scripts/python -m pip install -r requirements.txt
@@ -16,12 +18,12 @@ python -m venv ../.venv
 ../.venv/Scripts/python preview.py            # out/preview.png, paths over the image plane
 ```
 
-The ground truth is the DSCOVR EPIC Earth from 13 June 2015, 11:00 UTC: the Level 1B granule `epic_1b_20150613110250_03.h5`, which `EPIC_H5` in `make_textures.py` points at.
+The ground truth is the DSCOVR EPIC Earth from 13 June 2015, 11:00 UTC, from that granule.
 - **Every picture is in color** (`*_rgb.png`): the 680, 551 and 443 nm bands run through the pipeline separately, then stack.
   - The averaged PSF doesn't depend on wavelength, so each band blurs identically. Their penalties come out 1.00, 1.02 and 1.03 × 1/√N.
   - Colors use the thesis figure's display: L1B counts normalized by their common maximum, gain 2.2. They aren't radiometrically calibrated.
   - EPIC takes its bands minutes apart, so cloud edges can show slight color fringes.
-- **The 443 nm band alone**, the one the thesis used, still runs for the numbers in the manifest and for `truth.npy` and `image_plane.npy`, which the Colab rerun and layer C's validation read. The thesis's saved 443 nm array (`EPIC_NPY`) is that band, byte for byte.
+- **The 443 nm band alone**, the one the thesis used, still runs for the numbers in the manifest and for `truth.npy` and `image_plane.npy`, which the Colab rerun and layer C's validation read. It is the granule's `Band443nm`, byte for byte the array the thesis saved.
 
 ## Physics
 
@@ -123,4 +125,4 @@ Each band goes through the same blur and gets Gaussian noise. It's recovered wit
 
 - **Image-plane drift (0.1 m/s) and corona noise.** Neither is in these paths.
 
-The FBPINN rerun under the corrected PSF is in [`colab/`](../colab).
+The reconstruction rerun under the physical PSF is in [`colab/`](../colab).

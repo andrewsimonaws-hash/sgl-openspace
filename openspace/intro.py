@@ -349,6 +349,13 @@ def draw_photon_sprite(path, n=128):
     Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), mode="RGB").save(path)
 
 
+def has_epic():
+    """Whether layer A's EPIC granule is on disk, which draw_planet needs."""
+    sys.path.insert(0, LAYER_A)
+    import make_textures as T
+    return os.path.isfile(T.EPIC_H5)
+
+
 def draw_planet(path, n=1024):
     """The planet up close: the EPIC Earth at n px (the reel's textures are 256) with the same
     display stretch, and a thin blue atmosphere glow past the limb. Transparent outside it."""

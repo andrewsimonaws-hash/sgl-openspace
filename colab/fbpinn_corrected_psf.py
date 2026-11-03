@@ -1,18 +1,18 @@
 # %% [markdown]
-# # Module 1 FBPINN under the corrected SGL PSF
+# # The thesis FBPINN under the physical SGL PSF
 #
-# This reruns the thesis Module 1 reconstruction with the physical solar gravitational
-# lens blur. The aperture-averaged PSF is from Toth & Turyshev 2021, arXiv:2012.05477,
-# eq. 3. It's the same model as `layer_a/sgl_psf.py`. It fixes four problems found when
-# the thesis code was audited:
+# This reruns the thesis's reconstruction network, a finite-basis physics-informed neural
+# network (FBPINN), with the physical solar gravitational lens blur. The aperture-averaged
+# PSF is from Toth & Turyshev 2021, arXiv:2012.05477, eq. 3. It's the same model as
+# `layer_a/sgl_psf.py`. What changed from the thesis setup:
 #
 # - **PSF:** the physical PSF puts about 0.4% of the light in the directly imaged spot,
 #   not 65%.
 # - **Operator:** the data and the FBPINN use the *same* forward operator, a zero-padded
 #   linear convolution, so there's no pixel offset.
 # - **Noise:** the corona noise is uniform across the image plane.
-# - **No oracles:** there's no oracle fill and no oracle acquisition. Every method sees only
-#   the noisy measurements.
+# - **Same information:** every method sees only the noisy measurements, with nothing
+#   filled in or acquired from the true image.
 #
 # It compares five methods on the same measurements:
 #

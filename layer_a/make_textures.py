@@ -17,6 +17,7 @@ image_plane.npy, which the Colab rerun and layer C's validation read.
 import argparse
 import json
 import os
+import sys
 
 import numpy as np
 from PIL import Image
@@ -24,8 +25,12 @@ from PIL import Image
 import sgl_psf as S
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EPIC_H5 = os.path.join(HERE, "..", "..", "code", "earth access", "epic_1b_20150613110250_03.h5")
-EPIC_NPY = os.path.join(HERE, "..", "..", "code", "revised", "data", "epic_443nm_image.npy")
+# The ground truth: DSCOVR EPIC Level 1B (version 3), 13 June 2015, 11:00 UTC. Download it
+# (free NASA Earthdata login) into layer_a/data/, or point EPIC_H5 at a copy elsewhere.
+EPIC_GRANULE = "epic_1b_20150613110250_03.h5"
+EPIC_URL = ("https://data.asdc.earthdata.nasa.gov/asdc-prod-protected/DSCOVR/DSCOVR_EPIC_L1B_3/"
+            "2015.06/" + EPIC_GRANULE)
+EPIC_H5 = os.environ.get("EPIC_H5") or os.path.join(HERE, "data", EPIC_GRANULE)
 OUT = os.path.join(HERE, "out", "textures")
 
 Z_OBS = 650 * S.AU
@@ -63,25 +68,30 @@ def resample(raw, n, box, mask):
     return np.where(mask, np.clip(np.asarray(small, dtype=np.float64), 0, None), 0.0)
 
 
+def open_epic():
+    """The EPIC granule, or a message saying where to get it."""
+    import h5py
+    if not os.path.isfile(EPIC_H5):
+        sys.exit(f"The EPIC granule isn't at {EPIC_H5}. Download it (free NASA Earthdata login)\n"
+                 f"  {EPIC_URL}\ninto layer_a/data/, or set EPIC_H5 to its path.")
+    return h5py.File(EPIC_H5, "r")
+
+
 def epic_box():
     """The crop the color and biosignature products share, from the three RGB bands."""
-    import h5py
-    with h5py.File(EPIC_H5, "r") as f:
+    with open_epic() as f:
         return disk_box([thesis_orientation(np.array(f[b]["Image"])) for b in RGB_BANDS])
 
 
 def load_bands(n, color):
     """EPIC band(s) cropped to the disk's bounding box and area-averaged to n x n.
 
-    Gray: the thesis 443 nm array, normalized to its own max. Color: three bands from the
-    EPIC file, normalized by their common max so the colour balance survives.
+    Gray: the 443 nm band the thesis used, normalized to its own max. Color: three bands,
+    normalized by their common max so the colour balance survives.
     """
-    if color:
-        import h5py
-        with h5py.File(EPIC_H5, "r") as f:
-            raws = [thesis_orientation(np.array(f[b]["Image"])) for b in RGB_BANDS]
-    else:
-        raws = [thesis_orientation(np.load(EPIC_NPY))]
+    bands = RGB_BANDS if color else ("Band443nm",)
+    with open_epic() as f:
+        raws = [thesis_orientation(np.array(f[b]["Image"])) for b in bands]
     peak = max(r.max() for r in raws)
     raws = [r / peak for r in raws]
     box = disk_box(raws)
@@ -179,7 +189,7 @@ def main():
     manifest = {
         "description": "SGL image-plane textures for the OpenSpace portfolio scene (layer A).",
         "model": "Aperture-averaged SGL PSF mu(rho), Toth & Turyshev 2021 (arXiv:2012.05477) eq. 2-3",
-        "ground_truth": "DSCOVR EPIC L1B, 2015-06-13 11:00:36 UTC (code/earth access/epic_1b_20150613110250_03.h5)",
+        "ground_truth": f"DSCOVR EPIC L1B version 3, 2015-06-13 11:00:36 UTC ({EPIC_GRANULE})",
         "geometry": {
             "z_obs_au": 650, "target_distance_pc": 30, "planet_diameter_m": PLANET_DIAMETER,
             "focal_distance_au": S.focal_distance() / S.AU,

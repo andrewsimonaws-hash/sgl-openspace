@@ -1,7 +1,7 @@
 {
   "description": "SGL image-plane textures for the OpenSpace portfolio scene (layer A).",
   "model": "Aperture-averaged SGL PSF mu(rho), Toth & Turyshev 2021 (arXiv:2012.05477) eq. 2-3",
-  "ground_truth": "DSCOVR EPIC L1B, 2015-06-13 11:00:36 UTC (code/earth access/epic_1b_20150613110250_03.h5)",
+  "ground_truth": "DSCOVR EPIC L1B version 3, 2015-06-13 11:00:36 UTC (epic_1b_20150613110250_03.h5)",
   "geometry": {
     "z_obs_au": 650,
     "target_distance_pc": 30,
