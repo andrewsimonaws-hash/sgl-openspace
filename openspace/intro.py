@@ -31,6 +31,14 @@ TARGET_PC = 30.0
 IMAGE_AU = 650.0
 N_RAYS = 8
 HERO_ANGLE = math.pi / 2        # the followed ray passes over the Sun's +y limb
+# The camera's rig on the light pulse (make_intro.py): behind it and lifted off the axis, in
+# units of the camera distance, which is D_PLANET as the pulse leaves the planet
+RIG_BACK, RIG_LIFT = 0.94, 0.35
+PULSE_START = 1.05 * R_EARTH    # the pulse sets off just above the planet's surface (m)
+D_PLANET = 3.5e7                # camera distance behind it then (m)
+# The globe's day side faces the camera where the flight ends, turned this far toward the Sun,
+# so the close-up is gibbous: a soft shadow edge reads as a sphere, a fully lit disk as flat
+GLOBE_TILT = math.radians(30)
 
 # (start time in s, text). Centered by padding, so the text box is sized for the longest.
 CAPTIONS = {
@@ -51,7 +59,6 @@ SSAA = 2
 # Screen-space text is drawn at FONT_SIZE and then scaled to its Scale; 60 keeps the captions
 # and labels at least as sharp as the frames they land in.
 FONT_SIZE = 60
-PLANET_FILL = 0.9               # the planet's disk radius as a fraction of its texture's half-width
 CORONA_REACH = 4.0              # the Sun's glow texture spans this many solar radii from the center
 TEXT_BAND = 0.4                # opacity of the dark band behind the caption and the clock
 
@@ -71,6 +78,16 @@ def planet_pos():
 
 def image_pos():
     return (0.0, 0.0, IMAGE_AU * AU)
+
+
+def close_pass_direction(b):
+    """Unit vector from the planet to the camera where the opening's flight ends, just
+    behind the light pulse as it leaves the surface. The globe turns its day side this way."""
+    import numpy as np
+    planet, limb = np.array(planet_pos()), np.array(limb_points(b)[0])
+    f1, n_out = (limb - planet) / np.linalg.norm(limb - planet), limb / np.linalg.norm(limb)
+    rel = f1 * PULSE_START + D_PLANET * (-RIG_BACK * f1 + RIG_LIFT * n_out)
+    return rel / np.linalg.norm(rel)
 
 
 def limb_points(b):
@@ -121,7 +138,18 @@ def overlay_rect():
 
 def asset_lua(b):
     """sgl_intro.asset: everything starts hidden; the intro recording switches it on."""
+    import numpy as np
     limbs = limb_points(b)
+    # The globe's day side faces the camera at the close pass, turned GLOBE_TILT toward the Sun,
+    # with north toward the camera's up (+y). The texture's day side is centered on local -x,
+    # so the rotation's columns (local x, y, z in the SGL frame) are -day, day x north and north.
+    cam, sun = close_pass_direction(b), -np.array(planet_pos()) / np.linalg.norm(planet_pos())
+    toward_sun = sun - sun.dot(cam) * cam
+    day = math.cos(GLOBE_TILT) * cam + math.sin(GLOBE_TILT) * toward_sun / np.linalg.norm(toward_sun)
+    north = np.array([0.0, 1.0, 0.0]) - day[1] * day
+    north /= np.linalg.norm(north)
+    columns = np.concatenate([-day, np.cross(day, north), north])
+    globe_rotation = ", ".join(f"{v:.12f}" for v in np.where(abs(columns) < 1e-12, 0.0, columns))
     x0, x1, y0, y1 = overlay_rect()
     limb_nodes = ",\n".join(
         f'''  {{ Identifier = "SGL_RayLimb{k}", Parent = sgl.SGL_Frame.Identifier,
@@ -140,23 +168,35 @@ asset.require("scene/solarsystem/sun/layers/colorlayers/sun_texture")
 
 local PC = {PC!r}
 
+-- The camera anchors here; the globe is a child, so turning it doesn't turn the anchor frame
 local Planet = {{
   Identifier = "SGL_IntroPlanet",
   Parent = sgl.SGL_Frame.Identifier,
   Transform = {{ Translation = {{ Type = "StaticTranslation", Position = {lua_vec(planet_pos())} }} }},
-  Renderable = {{
-    Type = "RenderablePlaneImageLocal",
-    -- The EPIC Earth at 1024 px with a thin atmosphere glow past the limb
-    Texture = asset.resource("textures/intro_planet.png"),
-    Size = {R_EARTH / PLANET_FILL},
-    Billboard = true,
-    BlendMode = "Normal",
-    Enabled = false
-  }},
   BoundingSphere = {R_EARTH},
   InteractionSphere = {R_EARTH},
   GUI = {{ Name = "Exoplanet (30 pc)", Path = "/SGL/Intro",
     Description = "An Earth twin at 30 pc, drawn with the DSCOVR EPIC Earth." }}
+}}
+
+-- The EPIC hemisphere faces the camera where the flight ends, turned 30 degrees toward the Sun,
+-- as if the planet's own star were behind and above the camera; the far side is night.
+local Globe = {{
+  Identifier = "SGL_IntroGlobe",
+  Parent = Planet.Identifier,
+  Transform = {{
+    Rotation = {{ Type = "StaticRotation", Rotation = {{ {globe_rotation} }} }}
+  }},
+  Renderable = {{
+    Type = "RenderableSphereImageLocal",
+    Texture = asset.resource("textures/intro_planet_map.png"),
+    Size = {R_EARTH},
+    Segments = 192,
+    Orientation = "Outside",
+    DisableFadeInOut = true,
+    Enabled = false
+  }},
+  GUI = {{ Name = "Exoplanet globe", Path = "/SGL/Intro" }}
 }}
 
 local function marker(id, name, parent, position, color)
@@ -302,7 +342,7 @@ local Diagram = {{
   Enabled = false
 }}
 
-local nodes = {{ Planet, PlanetDot, SunDot, Photon, Corona }}
+local nodes = {{ Planet, Globe, PlanetDot, SunDot, Photon, Corona }}
 for _, n in ipairs(LimbNodes) do table.insert(nodes, n) end
 for _, n in ipairs(Rays) do table.insert(nodes, n) end
 -- On the dome a full-width caption would be too small to read, so it's split over two
@@ -350,15 +390,15 @@ def draw_photon_sprite(path, n=128):
 
 
 def has_epic():
-    """Whether layer A's EPIC granule is on disk, which draw_planet needs."""
+    """Whether layer A's EPIC granule is on disk, which draw_planet_map needs."""
     sys.path.insert(0, LAYER_A)
     import make_textures as T
     return os.path.isfile(T.EPIC_H5)
 
 
-def draw_planet(path, n=1024):
-    """The planet up close: the EPIC Earth at n px (the reel's textures are 256) with the same
-    display stretch, and a thin blue atmosphere glow past the limb. Transparent outside it."""
+def planet_disk(n):
+    """The EPIC Earth as an n x n disk filling the square, with the reel's display stretch
+    (its textures are 256 px) and white-balanced on its brightest clouds. Zero outside."""
     import numpy as np
     sys.path.insert(0, LAYER_A)
     import make_textures as T
@@ -370,26 +410,32 @@ def draw_planet(path, n=1024):
     disk = disk * coarse.sum() / binned.sum()
     # White-balance on the brightest clouds: the bands' raw scales tint them mint
     p = np.percentile(disk[disk.sum(axis=2) > 0], 99.5, axis=0)
-    disk = np.clip(disk * (p.max() / p) * T.RGB_GAIN, 0, 1)
+    return np.clip(disk * (p.max() / p) * T.RGB_GAIN, 0, 1)
 
-    m = int(round(n / PLANET_FILL / 2)) * 2
-    o = (m - n) // 2
-    rgb = np.zeros((m, m, 3))
-    rgb[o:o + n, o:o + n] = disk
-    yy, xx = np.mgrid[:m, :m]
-    r = np.hypot(xx - (m - 1) / 2, yy - (m - 1) / 2) / (n / 2)       # in planet radii
-    sky = np.array([0.6, 0.76, 1.0])
-    # Inside EPIC's last few pixels, which fade into space and fringe red where the bands
-    # don't quite overlay
-    edge = 1 - 5 / (n / 2)
-    a_disk = np.clip((edge - r) * n / 2 + 0.5, 0, 1)
-    # A faint glow from the limb outward, gone by 4% of a radius so nothing past it is hidden
-    halo = 0.32 * np.exp(-np.maximum(r - edge, 0) / 0.012) * np.clip((1.04 - r) / 0.01, 0, 1)
-    # The disk over the glow, so the edge pixels blend into it instead of darkening
-    alpha = a_disk + halo * (1 - a_disk)
-    rgb = (rgb * a_disk[..., None] + sky * (halo * (1 - a_disk))[..., None]) / np.maximum(alpha, 1e-6)[..., None]
-    out = np.dstack([rgb, alpha]) * 255
-    Image.fromarray(out.round().astype(np.uint8), mode="RGBA").save(path)
+
+def draw_planet_map(path, width=4096, n=2048):
+    """The planet's globe texture: the EPIC disk projected back onto the hemisphere that faces
+    its star (the day side), with the far side in night. Equirectangular, as
+    RenderableSphereImageLocal maps it: longitude from local +x toward +y, latitude down from
+    the north pole at local +z. The day side is centered on local -x, half a turn from the
+    texture's seam."""
+    import numpy as np
+    from scipy.ndimage import map_coordinates
+    disk = planet_disk(n)
+    h = width // 2
+    theta, phi = np.meshgrid(np.pi * (np.arange(h) + 0.5) / h, 2 * np.pi * (np.arange(width) + 0.5) / width,
+                             indexing="ij")
+    x, y, z = np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)
+    # Seen from -x with north up, the disk's right is -y and its top is +z
+    rows, cols = (n - 1) / 2 - z * n / 2, (n - 1) / 2 - y * n / 2
+    rgb = np.dstack([map_coordinates(disk[..., c], [rows, cols], order=1) for c in range(3)])
+    # EPIC's limb is bright with haze, so the light fades out where its star is within 16
+    # degrees of the horizon, or the terminator is a hard cut when the planet is seen from the
+    # side. The fade reaches zero 5.7 degrees up, which also drops EPIC's last few pixels (they
+    # fade into space and fringe red where the bands don't quite overlay) and the night side.
+    soft = np.clip((-x - 0.1) / 0.18, 0, 1)
+    rgb *= (soft * soft * (3 - 2 * soft))[..., None]
+    Image.fromarray((rgb * 255).round().astype(np.uint8), mode="RGB").save(path)
 
 
 def draw_corona(path, n=1024):

@@ -9,23 +9,35 @@ asset.require("scene/solarsystem/sun/layers/colorlayers/sun_texture")
 
 local PC = 3.085677581491367e+16
 
+-- The camera anchors here; the globe is a child, so turning it doesn't turn the anchor frame
 local Planet = {
   Identifier = "SGL_IntroPlanet",
   Parent = sgl.SGL_Frame.Identifier,
   Transform = { Translation = { Type = "StaticTranslation", Position = { 0, 0, -9.2570327444741018e+17 } } },
-  Renderable = {
-    Type = "RenderablePlaneImageLocal",
-    -- The EPIC Earth at 1024 px with a thin atmosphere glow past the limb
-    Texture = asset.resource("textures/intro_planet.png"),
-    Size = 7086777.777777778,
-    Billboard = true,
-    BlendMode = "Normal",
-    Enabled = false
-  },
   BoundingSphere = 6378100.0,
   InteractionSphere = 6378100.0,
   GUI = { Name = "Exoplanet (30 pc)", Path = "/SGL/Intro",
     Description = "An Earth twin at 30 pc, drawn with the DSCOVR EPIC Earth." }
+}
+
+-- The EPIC hemisphere faces the camera where the flight ends, turned 30 degrees toward the Sun,
+-- as if the planet's own star were behind and above the camera; the far side is night.
+local Globe = {
+  Identifier = "SGL_IntroGlobe",
+  Parent = Planet.Identifier,
+  Transform = {
+    Rotation = { Type = "StaticRotation", Rotation = { 0.000000000000, -0.819714936189, 0.572771702678, 1.000000000000, 0.000000000000, 0.000000000000, 0.000000000000, 0.572771702678, 0.819714936189 } }
+  },
+  Renderable = {
+    Type = "RenderableSphereImageLocal",
+    Texture = asset.resource("textures/intro_planet_map.png"),
+    Size = 6378100.0,
+    Segments = 192,
+    Orientation = "Outside",
+    DisableFadeInOut = true,
+    Enabled = false
+  },
+  GUI = { Name = "Exoplanet globe", Path = "/SGL/Intro" }
 }
 
 local function marker(id, name, parent, position, color)
@@ -194,7 +206,7 @@ local Diagram = {
   Enabled = false
 }
 
-local nodes = { Planet, PlanetDot, SunDot, Photon, Corona }
+local nodes = { Planet, Globe, PlanetDot, SunDot, Photon, Corona }
 for _, n in ipairs(LimbNodes) do table.insert(nodes, n) end
 for _, n in ipairs(Rays) do table.insert(nodes, n) end
 -- On the dome a full-width caption would be too small to read, so it's split over two

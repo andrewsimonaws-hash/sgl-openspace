@@ -700,9 +700,9 @@ end)
     intro.draw_bend_diagram(os.path.join(OUT, "textures", "intro_bend_diagram.png"))
     intro.draw_photon_sprite(os.path.join(OUT, "textures", "intro_photon.png"))
     if intro.has_epic():
-        intro.draw_planet(os.path.join(OUT, "textures", "intro_planet.png"))
+        intro.draw_planet_map(os.path.join(OUT, "textures", "intro_planet_map.png"))
     else:
-        print("no EPIC granule (see layer_a/README.md): keeping the committed intro_planet.png")
+        print("no EPIC granule (see layer_a/README.md): keeping the committed intro_planet_map.png")
     intro.draw_corona(os.path.join(OUT, "textures", "intro_corona.png"))
 
     telescope_profile = dict(profile)

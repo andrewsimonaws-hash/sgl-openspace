@@ -45,7 +45,7 @@ OVERVIEW_FADE = 15              # frames over which the overview's diagram and l
 # OpenSpace's SunStar (the Sun as a star from outside the solar system) swells into a halo
 # and only fades between 0.1 and 0.0075 pc, a flash at this speed; fade it while it's small
 SUNSTAR_FADE = (1e17, 1e16)
-D_PLANET, D_SUN, D_IMAGE = 3.5e7, 2.5e9, 3.2e3      # closest camera distances on each leg
+D_PLANET, D_SUN, D_IMAGE = I.D_PLANET, 2.5e9, 3.2e3  # closest camera distances on each leg
 # How the opening sits on screen. Screen-space positions are in the camera's view space, where
 # z = -2 is the flat screen. On the dome master the circle's center is straight ahead and a
 # flat-sized overview would fill only its middle, so the overview is drawn `scale` times
@@ -227,15 +227,16 @@ def build(reel_path, layout):
     len1, len2 = np.linalg.norm(limb - planet), np.linalg.norm(image - limb)
     et_limb = et_arrive - len2 / I.C
     et_emit = et_limb - len1 / I.C
-    s_start = I.R_EARTH * 1.05                          # the pulse sets off from the surface
+    s_start = I.PULSE_START                             # the pulse sets off from the surface
 
     side = unit(np.cross(f1, n_out))                     # across the ray, for the swing at the Sun
 
     def rig(d, f, swing=0.0):
         """Camera offset from the light pulse: behind it and a little outside the axis, or
         swung round to the side by `swing` (0 to 1)."""
-        back = math.cos(swing * math.pi / 2) * -0.94 * f + math.sin(swing * math.pi / 2) * 0.94 * side
-        return d * (back + 0.35 * n_out)
+        a = swing * math.pi / 2
+        back = math.cos(a) * -I.RIG_BACK * f + math.sin(a) * I.RIG_BACK * side
+        return d * (back + I.RIG_LIFT * n_out)
 
     def follow(leg, s, d, f, et, clock, swing=0.0):
         """Frame following the pulse at distance s along leg 1 (planet to limb) or 2 (limb to
@@ -274,6 +275,8 @@ def build(reel_path, layout):
     marks["fly"] = len(frames)
     start = planet + f1 * s_start
     v0, v1 = frames[-1]["rel"], f1 * s_start + rig(D_PLANET, f1)
+    # The globe's day side is turned toward this point (intro.close_pass_direction)
+    assert np.allclose(unit(v1), I.close_pass_direction(b)), "intro's globe no longer faces the close pass"
     look_end = start + f1 * 1.6 * D_PLANET
     n_fly = int(BEATS["fly"] * FPS)
     # Log distance: fast across the parsecs, then a slow approach from NEAR_DIST that eases
@@ -394,7 +397,7 @@ def events_for(frames, marks, mode):
     planet_dot, sun_dot = (f"Scene.SGL_Intro{n}.Renderable.Enabled" for n in ("PlanetDot", "SunDot"))
     planet_label, sun_label, distance_label = (f"ScreenSpace.SGL_Intro{n}.Enabled"
                                                for n in ("PlanetLabel", "SunLabel", "DistanceLabel"))
-    photon, planet_img = "Scene.SGL_Photon.Renderable.Enabled", "Scene.SGL_IntroPlanet.Renderable.Enabled"
+    photon, planet_img = "Scene.SGL_Photon.Renderable.Enabled", "Scene.SGL_IntroGlobe.Renderable.Enabled"
     sun_globe, sun_glare = "Scene.Sun.Renderable.Enabled", "Scene.SunGlare.Renderable.Enabled"
     corona = "Scene.SGL_IntroCorona.Renderable.Enabled"
     clock, diagram = (f"ScreenSpace.SGL_Intro{n}.Enabled" for n in ("Clock", "Diagram"))

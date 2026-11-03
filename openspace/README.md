@@ -34,7 +34,7 @@ Press **N** to step through the biosignature maps, with a caption for each, and 
 
 | Node | What it shows |
 |---|---|
-| `SGL_IntroPlanet` | The planet at 30 pc in the target direction: a billboard of the EPIC Earth at 1024 px, Earth-sized, white-balanced on its clouds, with a thin atmosphere glow past the limb |
+| `SGL_IntroPlanet`, `SGL_IntroGlobe` | The planet at 30 pc in the target direction, and its globe: an Earth-sized sphere whose day side is the EPIC Earth projected back from the disk (4096 × 2048, white-balanced on its clouds), turned toward the camera where the flight ends and 30° toward the Sun, so the close-up is gibbous, with the far side in night |
 | `SGL_Photon` | The light pulse. `tools/make_intro.py` moves it and sizes it every frame. |
 | `SGL_RayLimb0`–`7`, `SGL_RayIn0`–`7`, `SGL_RayOut0`–`7` | Eight rays from the planet past the Sun at 1.09 solar radii, then on to the image plane. Ray 0 is the one followed. |
 | `SGL_IntroPlanetDot`, `SGL_IntroSunDot` | Markers that keep the planet and the Sun visible from parsecs away. The planet's marker fades out as its image grows past a few pixels. |
@@ -62,6 +62,7 @@ The profile opens paused at the mission start. The camera sits just behind the i
   - **Order and parsing:** entries must be in time order. Parsing stops at the first bad line, which silently ends the playback there; a NumPy `np.float64(...)` repr did that.
   - **Simulation time:** only the first entry sets it. After that it follows scripts, and playback queues a script on the frame it's reached but runs it on the next, so each frame's scripts go in a frame early.
 - **Moving anchors:** the camera is placed from its anchor's position before the scene updates, so it trails an anchor that moves each frame by one frame. The opening anchors to fixed nodes (the planet, the limb point, the image plane) and moves the light pulse by script.
+- **A planet seen from the side:** a billboard of the planet looked like a cutout as the camera swung past, and it turned into an ellipse off-center on the dome. The globe is a `RenderableSphereImageLocal` instead. The rotation that turns the day side toward the camera sits on a child node, so the camera's anchor frame for the recording stays the same.
 - **30 pc from the origin:** world positions in 32-bit floats are off by ~5×10¹⁰ m there. `RenderableLabel` and the point-cloud pulse didn't draw, so the names are screen-space text placed each frame and the pulse is a billboard plane. A scripted plane `Size` must be a table `{ w, h }`.
 - **The Sun up close:** in these profiles the Sun is drawn as glare only, and its textured globe (`Scene.Sun` with the `sun_texture` layer) is off.
   - **Texture loading:** a globe switched on mid-shot draws grey, then fills in tile by tile. The opening switches it on from the first frame, far too small to see, so the texture has loaded by the close pass.

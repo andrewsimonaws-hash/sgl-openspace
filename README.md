@@ -34,7 +34,7 @@ https://github.com/user-attachments/assets/9f7f4cd0-8037-49d3-9253-bd95da0a67ba
 
 Both clips start by following the planet's light all the way to the image (about 45 s):
 1. **Overview:** the planet and the Sun, 30 parsecs apart. A box around the Sun opens into a side diagram of how it bends light.
-2. **The planet:** a flight out to an Earth twin 98 light-years away, drawn with the real Earth from DSCOVR EPIC at 1024 px.
+2. **The planet:** a flight out to an Earth twin 98 light-years away, a globe whose day side is the real Earth from DSCOVR EPIC. Its phase changes as the camera swings round it.
 3. **The trip:** a pulse of light leaves the planet and the camera rides with it. The time-lapse is logarithmic, so the distance shrinks by a steady factor each second, and a clock runs from February 1977 to December 2074.
 4. **The bend:** the pulse skims 0.09 solar radii above the Sun's surface, shown at a third of the speed of light.
 5. **Convergence:** rays from around the whole limb narrow into a cone 1.5 million km wide and meet 650 AU out, 3.75 days later.
@@ -104,6 +104,7 @@ Limits:
 - **Magnification:** the planet in the eyepiece is magnified, and the label shows the factor. Total ring light grows with the magnification, so any brightness readout divides it back out.
 - **Spacecraft paths:** these are analytical bang-coast-bang reference paths, the profile the thesis controllers were trained to imitate. They are not outputs of the trained networks.
 - **Corona:** drawn stylized. The real corona outshines the ring by orders of magnitude.
+- **The planet's lighting in the opening:** the flight ends on the far side of the planet from the Sun, and the globe's day side faces that point, turned 30° toward the Sun, as if the planet's own star were behind and above the camera. The close-up shows the EPIC face at a gibbous phase. Strictly, the lens images the face toward the Sun, which this lighting leaves mostly in night; the image plane shows the EPIC face, as if it were the one turned toward us.
 - **Colors:** EPIC's 680, 551 and 443 nm bands, scaled for display. The opening's close-up of the planet is also white-balanced on its clouds. The biosignature maps use calibrated reflectance.
 
 ## Run it
