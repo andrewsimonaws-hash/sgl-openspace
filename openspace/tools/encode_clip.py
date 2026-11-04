@@ -1,12 +1,13 @@
 """Turn the latest exported OpenSpace frames into an MP4 (and optionally a preview GIF).
 
     python encode_clip.py out.mp4 [--runs 2] [--width 1920] [--crf 20] [--gif preview.gif] [--fps 30]
-                          [--gif-width 600] [--gif-step 4]
+                          [--gif-width 600] [--gif-step 4] [--key-frame N ...]
 
 Takes the newest folder in OpenSpace's user/screenshots (see ../paths.py), or --folder, and
 inside it the last unbroken run of frames (a gap of more than 20 s between files separates
 runs). --runs 2 joins the last two runs in order, for the intro exported straight before the
-reel. --width scales supersampled frames down (Lanczos) to the clip's width.
+reel. --width scales supersampled frames down (Lanczos) to the clip's width. --key-frame forces
+a full refresh at a frame, such as just after something bright leaves the view.
 """
 import argparse
 import os
@@ -18,6 +19,13 @@ from PIL import Image
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import paths  # noqa: E402
+
+# By default x264 can leave a faint, blocky trace of a bright object on the dark sky behind it,
+# lasting until the next keyframe. These give dark areas more bits, stop it skipping small
+# changes and refresh the whole picture every 2 seconds at 30 fps. Files come out larger.
+# At 4096x4096 x264 picks level 6.0, whose long vertical motion vectors made fast-moving objects
+# break into blocks on a hardware decoder (Intel Iris Xe); mvrange keeps them short enough.
+X264_PARAMS = "keyint=60:aq-mode=3:no-fast-pskip=1:no-dct-decimate=1:mvrange=511"
 
 
 def latest_runs(n, folder=None):
@@ -47,13 +55,19 @@ def main():
     ap.add_argument("--crf", type=int, default=20, help="x264 quality (lower is better)")
     ap.add_argument("--gif-width", type=int, default=600)
     ap.add_argument("--gif-step", type=int, default=4, help="keep every n-th frame in the GIF")
+    ap.add_argument("--key-frame", type=int, action="append", default=[],
+                    help="force a keyframe at this frame number (repeatable)")
     args = ap.parse_args()
 
     frames = latest_runs(args.runs, args.folder)
     scale = ["-vf", f"scale={args.width}:-2:flags=lanczos"] if args.width else []
+    keys = []
+    if args.key_frame:
+        keys = ["-force_key_frames", "expr:" + "+".join(f"eq(n,{n})" for n in args.key_frame)]
     with imageio.get_writer(args.out, fps=args.fps, codec="libx264", quality=None, macro_block_size=1,
-                            output_params=scale + ["-crf", str(args.crf), "-pix_fmt", "yuv420p",
-                                                   "-movflags", "+faststart"]) as w:
+                            output_params=scale + keys + ["-crf", str(args.crf), "-pix_fmt", "yuv420p",
+                                                          "-x264-params", X264_PARAMS,
+                                                          "-movflags", "+faststart"]) as w:
         for f in frames:
             img = np.asarray(Image.open(f).convert("RGB"))
             h, wd = img.shape[0] // 2 * 2, img.shape[1] // 2 * 2      # x264 needs even sizes
