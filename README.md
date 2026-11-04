@@ -12,11 +12,12 @@ It grew out of my senior thesis on autonomy for this mission. Every physical num
 
 **Clips:** [flat with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) · [dome master with the opening (fisheye, 1024 px), 67 s](media/sgl_telescope_dome.mp4). These are MP4 downloads (28 MB and 10 MB); GitHub doesn't play files this size in the browser.
 
-https://github.com/user-attachments/assets/72c2ba42-3f73-4081-9ab4-b2c5bf416960
+https://github.com/user-attachments/assets/a0c3006c-0dd3-429d-a610-9f54155ef275
 
 
 
-https://github.com/user-attachments/assets/a2536ab4-b207-4119-b1a9-75caaa157798
+https://github.com/user-attachments/assets/abe0719a-b54e-4f25-94b5-b27050744770
+
 
 
 
