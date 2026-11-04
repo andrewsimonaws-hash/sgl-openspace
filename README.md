@@ -10,15 +10,15 @@ The Sun bends light from a distant planet into a focus that starts 548 AU away. 
 
 It grew out of my senior thesis on autonomy for this mission. Every physical number on screen is checked against published optics or against a second, independent method.
 
-**Clips:** [flat with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) · [dome master with the opening (fisheye, 1024 px), 67 s](media/sgl_telescope_dome.mp4). These are MP4 downloads (28 MB and 10 MB); GitHub doesn't play files this size in the browser.
+**Clips:** full-quality downloads of the [flat version with the opening, 1080p, 66 s](media/sgl_telescope_flat.mp4) and the [dome master with the opening (fisheye, 1024 px), 67 s](media/sgl_telescope_dome.mp4), 29 MB and 10 MB. Both play below; the flat one at 720p.
+
+**Dome master (fisheye)**
 
 https://github.com/user-attachments/assets/a0c3006c-0dd3-429d-a610-9f54155ef275
 
-
+**Flat (720p)**
 
 https://github.com/user-attachments/assets/abe0719a-b54e-4f25-94b5-b27050744770
-
-
 
 
 
@@ -48,7 +48,7 @@ The rays are true geometry. They pass the Sun at the Einstein radius for 650 AU 
 - **The Sun and the focal line:** the camera looks back toward the Sun from just behind the image plane. The focal line runs from the planet's image to the Sun, 650 AU away. The Sun's disk is about 3″ across from there, so a marker sits on the line of sight to show where it is. The thin streak through it is the planets' orbits seen almost edge-on.
 - **The formation:** twelve spacecraft fly a rigid line 120 m apart, sampling the image on bang-coast-bang transfers. The sweep takes 13.4 days, against 115 for a single spacecraft.
 - **Sample points:** each in the color recorded at its stop.
-- **The eyepiece:** spacecraft 6's telescope looking back at the Sun. Inside the planet's image it sees a full Einstein ring at 1.61″; outside, two arcs. Press **M** to step the planet's magnification (×22,600 / ×56,600 / ×135,700). The real planet is about three millionths of an arcsecond across, so it has to be enlarged to be seen at all, and the label says by how much.
+- **The eyepiece:** spacecraft 6's telescope looking back at the Sun, past a coronagraph's dark occulting disk and a stylized corona. Inside the planet's image it sees a full Einstein ring at 1.61″; outside, two arcs. Press **M** to step the planet's magnification (×22,600 / ×56,600 / ×135,700). The real planet is about three millionths of an arcsecond across, so it has to be enlarged to be seen at all, and the label says by how much.
 - **Biosignatures:** press **N** to step through vegetation and oxygen maps on the planet's disk: the planet itself, what the telescopes record, and recoveries. The eyepiece switches to the same false color.
 
 ## Biosignatures
@@ -84,7 +84,7 @@ Limits:
 |---|---|---|
 | A · physics data | Python. Puts the real DSCOVR EPIC Earth at 30 pc and blurs it with the aperture-averaged SGL PSF from Toth & Turyshev (2021). Outputs textures, measurements, recoveries, biosignature maps and trajectory CSVs. | [`layer_a/`](layer_a) |
 | B · mission scene | Lua assets generated from layer A: focal line, image plane, formation, samples, biosignature maps, and the opening's planet, rays and captions | [`openspace/build_asset.py`](openspace/build_asset.py), [`openspace/sgl/`](openspace/sgl) |
-| C · telescope view | `Sgl` OpenSpace module. `ScreenSpaceSglTelescope` ray-traces each pixel through the lens equation on the GPU and follows a spacecraft node. | [`openspace/module_sgl/`](openspace/module_sgl) |
+| C · telescope view | `Sgl` OpenSpace module. `ScreenSpaceSglTelescope` ray-traces each pixel through the lens equation on the GPU and follows a spacecraft node. `RenderableSglCorona` draws the Sun's corona for the opening's close pass. | [`openspace/module_sgl/`](openspace/module_sgl) |
 | Prototype | The same telescope math in NumPy, used as the reference for the GPU | [`layer_c_proto/`](layer_c_proto) |
 | Reconstruction rerun | My thesis's reconstruction network (a finite-basis physics-informed neural network, FBPINN) rerun under the physical blur and compared with classical methods (Colab) | [`colab/`](colab) |
 
@@ -103,7 +103,7 @@ Limits:
 
 - **Magnification:** the planet in the eyepiece is magnified, and the label shows the factor. Total ring light grows with the magnification, so any brightness readout divides it back out.
 - **Spacecraft paths:** these are analytical bang-coast-bang reference paths, the profile the thesis controllers were trained to imitate. They are not outputs of the trained networks.
-- **Corona:** drawn stylized. The real corona outshines the ring by orders of magnitude.
+- **Corona:** drawn stylized. In the eyepiece, the real corona outshines the ring by orders of magnitude. Around the Sun in the opening, the real corona is about a million times fainter than the disk, so no single exposure shows both. There, the glow's falloff is integrated along each line of sight from the camera (Saito's electron density, Thomson scattering), and its loops are traced field lines of a made-up set of magnetic sources. The filaments and streamers are procedural, and the orange is a look taken from eclipse photography; the corona's white light is really white.
 - **The planet's lighting in the opening:** the flight ends on the far side of the planet from the Sun, and the globe's day side faces that point, turned 30° toward the Sun, as if the planet's own star were behind and above the camera. The close-up shows the EPIC face at a gibbous phase. Strictly, the lens images the face toward the Sun, which this lighting leaves mostly in night; the image plane shows the EPIC face, as if it were the one turned toward us.
 - **Colors:** EPIC's 680, 551 and 443 nm bands, scaled for display. The opening's close-up of the planet is also white-balanced on its clouds. The biosignature maps use calibrated reflectance.
 
@@ -161,6 +161,7 @@ openspace/
   intro.py        the opening: geometry, asset and bending diagram
   paths.py        where the local OpenSpace is (environment variables)
   sgl/            generated assets, textures, data
+  corona_loops.py the close pass's coronal loops, as traced field lines
   module_sgl/     the Sgl C++ module and shaders
   tools/          Lua-over-TCP control, recording, frame export, encoding
 colab/            reconstruction rerun: Colab notebook and results

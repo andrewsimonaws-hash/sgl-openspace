@@ -73,6 +73,7 @@ private:
     DoubleProperty _targetDistance;
     FloatProperty _fieldOfView;
     FloatProperty _occulterRadius;
+    FloatProperty _occulterShade;
     FloatProperty _coronaStrength;
     FloatProperty _gain;
     BoolProperty _eyepiece;

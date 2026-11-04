@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from PIL import Image
 
+import corona_loops
 import intro
 import paths
 
@@ -632,9 +633,14 @@ local Telescope = {{
   TargetDistance = {tex["geometry"]["target_distance_pc"]} * 3.0856775814913673e16,
   PlanetSize = 1,
   OcculterRadius = 1.02,
-  CoronaStrength = 0.06,
+  -- A dark grey occulting disk inside a dim eclipse-like corona, so the coronagraph reads
+  -- at clip size
+  OcculterShade = 0.02,
+  CoronaStrength = 0.05,
   Eyepiece = true,
-  Resolution = 2048,
+  -- About its size on screen in the 4K frames: drawn much larger, it's shrunk without
+  -- mipmaps and its thin edges alias
+  Resolution = 1024,
   -- Upper left, clear of the image plane, focal line and Sun; not turned toward the camera,
   -- which would foreshorten it into an ellipse this far off-axis
   CartesianPosition = {{ -1.05, 0.42, -2.0 }},
@@ -646,8 +652,8 @@ local Telescope = {{
 local Labels = {{ [0] = "22,600", [1] = "56,600", [2] = "135,700" }}
 local function labelText(size)
   -- Padded to the longest label: the text box is sized from the first text it shows
-  local text = "Telescope: planet x" .. Labels[size] .. " (M)"
-  return text .. string.rep(" ", 30 - #text)
+  local text = "Telescope: Einstein ring of planet x" .. Labels[size] .. " (M)"
+  return text .. string.rep(" ", 47 - #text)
 end
 
 local Label = {{
@@ -656,7 +662,7 @@ local Label = {{
   Type = "ScreenSpaceText",
   Text = labelText(1),
   CartesianPosition = {{ -1.05, -0.03, -2.0 }},
-  Scale = 0.4,
+  Scale = 0.55,
   FontSize = {intro.FONT_SIZE},
   FaceCamera = false
 }}
@@ -669,9 +675,9 @@ local NextPlanetSize = {{
     local size = (openspace.propertyValue(uri) + 1) % 3
     openspace.setPropertyValueSingle(uri, size)
     local labels = {{ [0] = "22,600", [1] = "56,600", [2] = "135,700" }}
-    local text = "Telescope: planet x" .. labels[size] .. " (M)"
+    local text = "Telescope: Einstein ring of planet x" .. labels[size] .. " (M)"
     openspace.setPropertyValueSingle(
-      "ScreenSpace.SGL_TelescopeLabel.Text", text .. string.rep(" ", 30 - #text)
+      "ScreenSpace.SGL_TelescopeLabel.Text", text .. string.rep(" ", 47 - #text)
     )
   ]],
   Documentation = "Steps the telescope view through the thin, medium and bold planet sizes",
@@ -703,7 +709,7 @@ end)
         intro.draw_planet_map(os.path.join(OUT, "textures", "intro_planet_map.png"))
     else:
         print("no EPIC granule (see layer_a/README.md): keeping the committed intro_planet_map.png")
-    intro.draw_corona(os.path.join(OUT, "textures", "intro_corona.png"))
+    corona_loops.write_loops(os.path.join(OUT, "data", "corona_loops.bin"), frame_matrix().T)
 
     telescope_profile = dict(profile)
     telescope_profile["assets"] = profile["assets"] + ["${USER_ASSETS}/sgl/sgl_telescope",

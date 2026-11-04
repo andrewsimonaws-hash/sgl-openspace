@@ -59,7 +59,6 @@ SSAA = 2
 # Screen-space text is drawn at FONT_SIZE and then scaled to its Scale; 60 keeps the captions
 # and labels at least as sharp as the frames they land in.
 FONT_SIZE = 60
-CORONA_REACH = 4.0              # the Sun's glow texture spans this many solar radii from the center
 TEXT_BAND = 0.4                # opacity of the dark band behind the caption and the clock
 
 # The overview's layout in screen-space units (z = -2). The flat frames (hfov 80°, vfov 50.534°)
@@ -260,20 +259,20 @@ local Photon = {{
   GUI = {{ Name = "Light pulse", Path = "/SGL/Intro" }}
 }}
 
--- A glow around the textured Sun for the close pass. It sits at the Sun's center facing the
--- camera, so the globe hides the part over its disk and only the ring past the limb shows.
+-- The corona for the close pass: a glow integrated along each sightline, with stylized
+-- streamers and filaments, and coronal loops as 3D curves (corona_loops.py). It uses the real
+-- camera and Sun, so it meets the limb.
 local Corona = {{
   Identifier = "SGL_IntroCorona",
-  Parent = sun.SunCenter.Identifier,
+  Parent = sgl.SGL_Frame.Identifier,
   Renderable = {{
-    Type = "RenderablePlaneImageLocal",
-    Texture = asset.resource("textures/intro_corona.png"),
-    Size = {CORONA_REACH * R_SUN},
-    Billboard = true,
-    BlendMode = "Additive",
+    Type = "RenderableSglCorona",
+    LoopFile = asset.resource("data/corona_loops.bin"),
+    GlowStrength = 0.65,
+    Structure = 0.5,
     Enabled = false
   }},
-  GUI = {{ Name = "Sun glow (close pass)", Path = "/SGL/Intro" }}
+  GUI = {{ Name = "Sun's corona (close pass)", Path = "/SGL/Intro" }}
 }}
 
 -- Rays: planet to the limb, limb to the image plane. Line nodes sit on the barycenter (see
@@ -438,23 +437,12 @@ def draw_planet_map(path, width=4096, n=2048):
     Image.fromarray((rgb * 255).round().astype(np.uint8), mode="RGB").save(path)
 
 
-def draw_corona(path, n=1024):
-    """Glow past the Sun's limb, on black for additive blending: bright at the limb and fading
-    over about a solar radius. Dark over the disk itself, which the globe covers anyway."""
-    import numpy as np
-    yy, xx = np.mgrid[:n, :n]
-    r = np.hypot(xx - (n - 1) / 2, yy - (n - 1) / 2) / (n / 2) * CORONA_REACH   # solar radii
-    out = 0.75 * np.exp(-np.abs(r - 1) / 0.12) + 0.3 * np.exp(-np.abs(r - 1) / 0.7)
-    out *= np.clip((r - 0.94) / 0.06, 0, 1) * np.clip((CORONA_REACH - r) / 0.5, 0, 1)
-    rgb = out[..., None] * np.array([1.0, 0.82, 0.55])
-    Image.fromarray((np.clip(rgb, 0, 1) * 255).round().astype(np.uint8), mode="RGB").save(path)
-
-
 def bend_diagram(s):
     """Side view of rays bending past the Sun, exaggerated and labelled as such: a 960 x 380
     layout drawn at s pixels per layout unit."""
     w, h = 960, 380
-    img = Image.new("RGBA", (round(w * s), round(h * s)), (8, 10, 16, 190))
+    # Neutral grey, as dark as the navy it replaced ((8, 10, 16) has luminance 10)
+    img = Image.new("RGBA", (round(w * s), round(h * s)), (10, 10, 10, 190))
     d = ImageDraw.Draw(img)
     S = lambda *v: tuple(a * s for a in v)
     W = lambda px: max(1, round(px * s))
@@ -468,7 +456,7 @@ def bend_diagram(s):
     for hh, hero in ((sun_r + 2, False), (sun_r * 1.09, True), (sun_r * 1.28, False), (sun_r * 1.5, False)):
         xf = focus(hh)
         color = (255, 244, 200, 255) if hero else (240, 215, 140, 150)
-        width = W(3 if hero else 2)
+        width = W(2.5 if hero else 2)
         for sign in (-1, 1):
             y0 = axis_y + sign * hh
             d.line(S(30, y0, sun_x, y0), fill=color, width=width)
@@ -477,8 +465,8 @@ def bend_diagram(s):
             d.line(S(sun_x, y0, end_x, y0 + slope * (end_x - sun_x)), fill=color, width=width)
     # Focal line from the limb-grazing focus outward, and the image plane.
     x548, x650 = focus(sun_r + 2), focus(sun_r * 1.09)
-    d.line(S(x548, axis_y, w - 30, axis_y), fill=(255, 168, 64, 255), width=W(5))
-    d.line(S(x650, axis_y - 70, x650, axis_y + 70), fill=(150, 230, 210, 255), width=W(3))
+    d.line(S(x548, axis_y, w - 30, axis_y), fill=(255, 168, 64, 255), width=W(4.2))
+    d.line(S(x650, axis_y - 70, x650, axis_y + 70), fill=(150, 230, 210, 255), width=W(2.5))
     d.ellipse(S(sun_x - sun_r, axis_y - sun_r, sun_x + sun_r, axis_y + sun_r), fill=(255, 205, 100, 255))
     d.text(S(sun_x, axis_y + sun_r + 32), "Sun", fill=(255, 225, 160), font=font, anchor="ma")
     d.text(S(40, 22), "light from the planet", fill=(240, 225, 170), font=font)

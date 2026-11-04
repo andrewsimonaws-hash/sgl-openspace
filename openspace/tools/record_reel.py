@@ -27,6 +27,9 @@ DURATION = 20.0
 SIZE_SWITCHES = (9.0, 13.0, 17.0)      # seconds into the clip
 P = "ScreenSpace.SGL_Telescope."
 LABEL = "ScreenSpace.SGL_TelescopeLabel."
+# The eyepiece label, padded to its longest form (x135,700): the text box is sized from the
+# first text it shows. build_asset.py writes the same text into the asset.
+LABEL_TEXT, LABEL_WIDTH = "Telescope: Einstein ring of planet x{} (M)", 47
 
 # camera position and up vector in the image plane's frame (m), camera pitch and yaw (rad;
 # up and right are positive, measured from looking at the image plane), orbit rate per step, eyepiece scale and position, label position and scale,
@@ -37,7 +40,7 @@ FRAMING = {
     "flat": {
         "camera": (970, 300, 3000), "up": (0, 1, 0), "pitch": 0.0, "yaw": 0.0, "orbit": 0.04,
         "scale": 0.38, "eyepiece": (-1.05, 0.42, -2.0),
-        "label": (-1.05, -0.03, -2.0), "label_scale": 0.4, "face_camera": False,
+        "label": (-1.05, -0.03, -2.0), "label_scale": 0.55, "face_camera": False,
         "sun_label": {"orient": 0, "offset": (1.1e7, 1.3e7, 0), "size": 6.6,
                       "minmax": (14, 28)},
     },
@@ -50,7 +53,7 @@ FRAMING = {
     "dome": {
         "camera": (1640, 0, -1150), "up": (0, 1, 0), "pitch": 0.15, "yaw": 1.09, "orbit": 0.03,
         "scale": 0.68, "eyepiece": (0.0, 1.15, -1.64),
-        "label": (0.0, 0.39, -1.96), "label_scale": 0.75, "face_camera": True,
+        "label": (0.0, 0.39, -1.96), "label_scale": 1.03, "face_camera": True,
         "sun_label": {"orient": 1, "offset": (-3.6e8, 6e7, 0), "size": 6.0,
                       "minmax": (1, 100)},
     },
@@ -62,6 +65,10 @@ def lua_vec(v):
     return "{ " + ", ".join(str(x) for x in v) + " }"
 
 
+def label_text(magnification):
+    return LABEL_TEXT.format(magnification).ljust(LABEL_WIDTH)
+
+
 def framing_scripts(mode):
     """Scripts that set up the reel's first view: time, eyepiece, labels and camera."""
     f = FRAMING[mode]
@@ -71,7 +78,7 @@ def framing_scripts(mode):
         "openspace.time.setPause(true)",
         "openspace.time.setTime('2075-01-01T06:00:00')",
         f"openspace.setPropertyValueSingle('{P}PlanetSize', 1)",
-        f"openspace.setPropertyValueSingle('{LABEL}Text', 'Telescope: planet x56,600 (M) ')",
+        f"openspace.setPropertyValueSingle('{LABEL}Text', '{label_text('56,600')}')",
         f"openspace.setPropertyValueSingle('{P}Scale', {f['scale']})",
         f"openspace.setPropertyValueSingle('{P}CartesianPosition', {lua_vec(f['eyepiece'])})",
         f"openspace.setPropertyValueSingle('{LABEL}CartesianPosition', {lua_vec(f['label'])})",

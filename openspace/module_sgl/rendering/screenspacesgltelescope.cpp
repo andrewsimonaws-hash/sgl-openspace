@@ -130,11 +130,20 @@ namespace {
         Property::Visibility::User
     };
 
+    constexpr Property::PropertyInfo OcculterShadeInfo = {
+        "OcculterShade",
+        "Occulter shade",
+        "Brightness of the coronagraph's occulting disk, so it shows against the sky. "
+        "0 draws it black, as the reference renders do.",
+        Property::Visibility::User
+    };
+
     constexpr Property::PropertyInfo CoronaStrengthInfo = {
         "CoronaStrength",
         "Corona strength",
-        "Brightness of a stylised r^-3 corona around the occulter. The real corona is "
-        "far brighter than the ring; this is for orientation only.",
+        "Brightness of a stylized eclipse-like corona around the occulter: a glow at the "
+        "limb and fading rays. The real corona is far brighter than the ring; this is "
+        "for orientation only.",
         Property::Visibility::User
     };
 
@@ -211,6 +220,9 @@ namespace {
         // [[codegen::verbatim(OcculterRadiusInfo.description)]]
         std::optional<float> occulterRadius [[codegen::inrange(0.f, 1.08f)]];
 
+        // [[codegen::verbatim(OcculterShadeInfo.description)]]
+        std::optional<float> occulterShade [[codegen::inrange(0.f, 1.f)]];
+
         // [[codegen::verbatim(CoronaStrengthInfo.description)]]
         std::optional<float> coronaStrength [[codegen::greaterequal(0.f)]];
 
@@ -251,6 +263,7 @@ ScreenSpaceSglTelescope::ScreenSpaceSglTelescope(const ghoul::Dictionary& dictio
     , _targetDistance(TargetDistanceInfo, 30.0 * Parsec, 1e12, 1e22)
     , _fieldOfView(FieldOfViewInfo, 1.45f, 1.05f, 4.f)
     , _occulterRadius(OcculterRadiusInfo, 1.02f, 0.f, 1.08f)
+    , _occulterShade(OcculterShadeInfo, 0.f, 0.f, 1.f)
     , _coronaStrength(CoronaStrengthInfo, 0.06f, 0.f, 1.f)
     , _gain(GainInfo, 1.f, 0.1f, 10.f)
     , _eyepiece(EyepieceInfo, true)
@@ -304,6 +317,9 @@ ScreenSpaceSglTelescope::ScreenSpaceSglTelescope(const ghoul::Dictionary& dictio
 
     _occulterRadius = p.occulterRadius.value_or(_occulterRadius);
     addProperty(_occulterRadius);
+
+    _occulterShade = p.occulterShade.value_or(_occulterShade);
+    addProperty(_occulterShade);
 
     _coronaStrength = p.coronaStrength.value_or(_coronaStrength);
     addProperty(_coronaStrength);
@@ -495,6 +511,7 @@ void ScreenSpaceSglTelescope::renderView() {
     _program->setUniform("fieldOfView", _fieldOfView.value());
     _program->setUniform("sunRadius", _sunRadius);
     _program->setUniform("occulterRadius", _occulterRadius.value());
+    _program->setUniform("occulterShade", _occulterShade.value());
     _program->setUniform("coronaStrength", _coronaStrength.value());
     _program->setUniform("gain", _gain.value());
     _program->setUniform("eyepiece", _eyepiece.value());

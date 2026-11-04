@@ -26,7 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 import intro as I                                    # noqa: E402
 import paths                                         # noqa: E402
-from record_reel import FRAMING, LABEL, P, SUN_LABEL  # noqa: E402
+from record_reel import FRAMING, LABEL, P, SUN_LABEL, label_text  # noqa: E402
 
 TEXTURES_MANIFEST = os.path.join(HERE, "..", "..", "layer_a", "out", "textures", "manifest.json")
 FPS = 30
@@ -59,6 +59,7 @@ LAYOUT = {
 }
 FOLLOW = 0.05           # camera distance as a fraction of the distance to the nearer end
 PHOTON_SIZE = 0.03      # light-pulse half-width as a fraction of the camera distance
+PHOTON_PULSE = 1.2, 0.2  # the pulse throbs: period (s), and depth as a fraction of its size
 HOLD = 12               # frames held on the reel's first view at the end
 REEL_START = datetime(2075, 1, 1, 6, 0, 0)            # UTC of the reel's first frame
 SP = "openspace.setPropertyValueSingle"
@@ -449,7 +450,7 @@ def events_for(frames, marks, mode):
     at(marks["hold"],
        *[enable(u, False) for u in rays + caps + [clock, photon, sun_globe, corona]], enable(sun_glare, True),
        f"{SP}('{GLARE_OPACITY}', {GLARE})", f"{SP}('{SUNSTAR_OPACITY}', 1.0)",
-       f"{SP}('{P}PlanetSize', 1)", f"{SP}('{LABEL}Text', 'Telescope: planet x56,600 (M) ')",
+       f"{SP}('{P}PlanetSize', 1)", f"{SP}('{LABEL}Text', '{label_text('56,600')}')",
        f"{SP}('{P}Scale', {f['scale']})", f"{SP}('{P}CartesianPosition', {vec(f['eyepiece'])})",
        f"{SP}('{LABEL}CartesianPosition', {vec(f['label'])})", f"{SP}('{LABEL}Scale', {f['label_scale']})",
        f"{SP}('{P}FaceCamera', {face})", f"{SP}('{LABEL}FaceCamera', {face})",
@@ -511,7 +512,9 @@ def write(path, frames, marks, events, info, layout):
             scripts += opacity(SUNSTAR_OPACITY, fade(to_sun, *SUNSTAR_FADE))
         if fr.get("photon") is not None:
             scripts.append(f"{SP}('Scene.SGL_Photon.Translation.Position', {I.lua_vec(fr['photon'])})")
-            size = PHOTON_SIZE * fr["d"]
+            throb = math.sin(2 * math.pi * k / (PHOTON_PULSE[0] * FPS))
+            size = PHOTON_SIZE * fr["d"] * (1 + PHOTON_PULSE[1] * throb)
+            scripts += opacity("Scene.SGL_Photon.Renderable.Opacity", 0.8 + 0.2 * throb)
             scripts.append(f"{SP}('Scene.SGL_Photon.Renderable.Size', {{ {size:.6g}, {size:.6g} }})")
         if k < marks["bend"]:
             for name, (target, lift, lift_trip) in labels.items():

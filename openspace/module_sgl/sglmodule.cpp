@@ -6,8 +6,10 @@
 
 #include <modules/sgl/sglmodule.h>
 
+#include <modules/sgl/rendering/renderablesglcorona.h>
 #include <modules/sgl/rendering/screenspacesgltelescope.h>
 #include <openspace/documentation/documentation.h>
+#include <openspace/rendering/renderable.h>
 #include <openspace/rendering/screenspacerenderable.h>
 #include <openspace/util/factorymanager.h>
 #include <ghoul/misc/assert.h>
@@ -23,11 +25,18 @@ void SglModule::internalInitialize(const ghoul::Dictionary&) {
     ghoul_assert(fSsRenderable, "ScreenSpaceRenderable factory was not created");
 
     fSsRenderable->registerClass<ScreenSpaceSglTelescope>("ScreenSpaceSglTelescope");
+
+    ghoul::TemplateFactory<Renderable>* fRenderable =
+        FactoryManager::ref().factory<Renderable>();
+    ghoul_assert(fRenderable, "Renderable factory was not created");
+
+    fRenderable->registerClass<RenderableSglCorona>("RenderableSglCorona");
 }
 
 std::vector<Documentation> SglModule::documentations() const {
     return {
-        ScreenSpaceSglTelescope::Documentation()
+        ScreenSpaceSglTelescope::Documentation(),
+        RenderableSglCorona::Documentation()
     };
 }
 

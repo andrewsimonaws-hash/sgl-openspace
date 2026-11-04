@@ -7,8 +7,9 @@ The reference is layer_c_proto/out/visuals/c_occulter.png, rendered by render_op
 ring_view.render(rgb, u=(0.35, 0.2), kappa=0.05, size=640, occulter=1.02). The GPU frame must
 use the same settings, which --capture sets on ScreenSpace.SGL_Telescope: no telescope node, a
 manual offset of (0.35, 0.2), the medium planet size (kappa = 0.05), the default 1.02 R_sun
-occulter, no corona, no eyepiece, 640 px and gain 1 (the PNG texture already carries its display
-gain). Saved textures come out bottom-up, so the GPU frame is flipped before comparing.
+occulter drawn black, no corona, no eyepiece, 640 px and gain 1 (the PNG texture already
+carries its display gain). Saved textures come out bottom-up, so the GPU frame is flipped
+before comparing.
 
 A correlation alone is a weak check, so this also prints the mean difference on the ring, the
 share of pixels off by more than 16 and 32 levels, and the correlation of mirrored and rotated
@@ -39,6 +40,7 @@ def capture(path):
           f"openspace.setPropertyValueSingle('{P}ManualOffset', {{0.35, 0.2}})",
           f"openspace.setPropertyValueSingle('{P}PlanetSize', 1)",
           f"openspace.setPropertyValueSingle('{P}OcculterRadius', 1.02)",
+          f"openspace.setPropertyValueSingle('{P}OcculterShade', 0.0)",
           f"openspace.setPropertyValueSingle('{P}CoronaStrength', 0.0)",
           f"openspace.setPropertyValueSingle('{P}Eyepiece', false)",
           f"openspace.setPropertyValueSingle('{P}Resolution', 640)",

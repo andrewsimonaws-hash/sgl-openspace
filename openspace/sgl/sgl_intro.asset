@@ -101,20 +101,20 @@ local Photon = {
   GUI = { Name = "Light pulse", Path = "/SGL/Intro" }
 }
 
--- A glow around the textured Sun for the close pass. It sits at the Sun's center facing the
--- camera, so the globe hides the part over its disk and only the ring past the limb shows.
+-- The corona for the close pass: a glow integrated along each sightline, with stylized
+-- streamers and filaments, and coronal loops as 3D curves (corona_loops.py). It uses the real
+-- camera and Sun, so it meets the limb.
 local Corona = {
   Identifier = "SGL_IntroCorona",
-  Parent = sun.SunCenter.Identifier,
+  Parent = sgl.SGL_Frame.Identifier,
   Renderable = {
-    Type = "RenderablePlaneImageLocal",
-    Texture = asset.resource("textures/intro_corona.png"),
-    Size = 2782800000.0,
-    Billboard = true,
-    BlendMode = "Additive",
+    Type = "RenderableSglCorona",
+    LoopFile = asset.resource("data/corona_loops.bin"),
+    GlowStrength = 0.65,
+    Structure = 0.5,
     Enabled = false
   },
-  GUI = { Name = "Sun glow (close pass)", Path = "/SGL/Intro" }
+  GUI = { Name = "Sun's corona (close pass)", Path = "/SGL/Intro" }
 }
 
 -- Rays: planet to the limb, limb to the image plane. Line nodes sit on the barycenter (see
